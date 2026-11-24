@@ -29,6 +29,16 @@ Click the dot (or `Ctrl+Shift+P`). Type to filter, `Enter` inserts at the caret,
 
 **The insert is one undo step and does not touch the rest of the draft.** It goes through the composer's revision-guarded insert, so a quote chip or an attachment you already had stays where it is.
 
+## Polishing, when you ask for it
+
+**Polishing never happens on save.** The two-second line after a save has a «Polish» button, and every non-reply row has ✦. Nothing is rewritten until you click one of them.
+
+You get the original and the rewrite side by side, then choose: use this one, discard, or try again. Accepting keeps the old text in `prior`, so one click gets it back. **A failed or empty result never replaces anything** — the original stays and the line says so.
+
+Replies saved from the chat are marked as source material and get no ✦: you kept them verbatim on purpose.
+
+The rewrite runs on your current default model, with a fixed instruction set: same language, keep every `{{variable}}`, path, URL and code block byte-for-byte, no added steps, no growth past 1.3×.
+
 ## Limits
 
 **500 prompts. When it is full, the least recently used one goes.** No dialog, no growing list of things you never open again.
@@ -45,4 +55,4 @@ The agent can read and write the same pocket through the `prompt_stash` tool, so
 
 ## What it does not do
 
-**No tags, no folders, no import wizard, no recycle bin, no AI polish.** Each of those needs a panel, and a panel needs a decision every time you save. This one is built so there is nothing to decide.
+**No tags, no folders, no import wizard, no recycle bin.** Each of those needs a panel, and a panel needs a decision every time you save. This one is built so there is nothing to decide.

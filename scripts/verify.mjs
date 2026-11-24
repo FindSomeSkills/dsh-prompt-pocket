@@ -9,7 +9,7 @@ const fail = (n, d) => bad.push(n + (d ? ' — ' + d : ''));
 
 console.log('[1/2] 跑三套测试…');
 for (const [label, script] of [
-  ['宿主 14 项', 'scripts/smoke.mjs'],
+  ['宿主 17 项', 'scripts/smoke.mjs'],
   ['客户端 6 项', 'scripts/client-smoke.mjs'],
   ['文档 6 项', 'scripts/docs-check.mjs'],
 ]) {

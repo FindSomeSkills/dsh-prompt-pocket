@@ -38,6 +38,7 @@ function normalize(raw) {
       createdAt: typeof e.createdAt === 'number' ? e.createdAt : Date.now(),
       usedAt: typeof e.usedAt === 'number' ? e.usedAt : typeof e.createdAt === 'number' ? e.createdAt : Date.now(),
       useCount: typeof e.useCount === 'number' ? e.useCount : 0,
+      ...(typeof e.prior === 'string' && e.prior.trim() ? { prior: e.prior.slice(0, 20000) } : {}),
     }))
     .slice(-CAP);
   return { version: 1, entries };
@@ -130,6 +131,7 @@ async function mutate(body) {
       ...entries[i],
       text: text.slice(0, 20000),
       title: (typeof body.title === 'string' && body.title.trim()) || clipTitle(text),
+      ...(typeof body.prior === 'string' && body.prior.trim() ? { prior: body.prior.slice(0, 20000) } : {}),
     };
     await writeStore({ version: 1, entries });
     return { ok: true, entry: entries[i] };
@@ -187,6 +189,68 @@ function replyText(sessions, sessionId, messageId) {
   }
   const text = parts.join('\n\n').trim();
   return text || null;
+}
+
+
+// Polishing is opt-in: it runs only when the user clicks it, never on save.
+export const POLISH_SYSTEM = [
+  'You clean up a prompt that the user will reuse.',
+  'Keep the original language, intent and scope.',
+  'Keep every {{variable}}, path, URL, code block and quoted string byte-for-byte.',
+  'Do not add features, steps, examples or explanations.',
+  'Never grow the text past 1.3 times the input; shortening is fine.',
+  'Replace vague wording with concrete instructions and remove filler.',
+  'Output only the rewritten prompt: no preamble, no commentary, no code fences.',
+].join('\n');
+
+// One place decides whether a model reply is an acceptable rewrite.
+export function cleanPolished(input, raw) {
+  const src = String(input || '').trim();
+  let out = String(raw || '').trim();
+  const fence = /^```[a-zA-Z]*\n([\s\S]*?)\n```$/.exec(out);
+  if (fence) out = fence[1].trim();
+  out = out.trim();
+  if (!out) return { ok: false, code: 'empty' };
+  if (out.length > Math.max(120, src.length * 2)) return { ok: false, code: 'too-long' };
+  if (out === src) return { ok: false, code: 'unchanged' };
+  return { ok: true, text: out };
+}
+
+async function polishText(ctx, text) {
+  const llm = ctx.get('llm');
+  const models = ctx.get('agentDefaultModel');
+  if (!llm || !models) return { ok: false, code: 'no-model' };
+  let selection;
+  try {
+    selection = models.currentSelection();
+  } catch {
+    return { ok: false, code: 'no-model' };
+  }
+  const provider = selection && selection.provider;
+  const model = selection && selection.model;
+  if (!provider || !model) return { ok: false, code: 'no-model' };
+  let raw = '';
+  try {
+    const stream = llm.stream({
+      provider,
+      model,
+      system: POLISH_SYSTEM,
+      messages: [{ role: 'user', content: [{ type: 'text', text: String(text) }] }],
+      maxTokens: 1200,
+      temperature: 0.2,
+      signal: AbortSignal.timeout(25000),
+    });
+    for await (const chunk of stream) {
+      if (chunk.type === 'text-delta') raw += chunk.text;
+      else if (chunk.type === 'finish') {
+        const kind = chunk.reason && chunk.reason.kind;
+        if (kind !== 'stop') return { ok: false, code: 'failed', reason: String(kind || 'unknown') };
+      }
+    }
+  } catch (e) {
+    return { ok: false, code: 'failed', message: String((e && e.message) || e).slice(0, 160) };
+  }
+  return cleanPolished(text, raw);
 }
 
 function sendNode(res, status, data) {
@@ -260,6 +324,26 @@ export function apply(ctx) {
         const text = replyText(sessions, url.searchParams.get('session'), url.searchParams.get('id'));
         if (!text) return sendNode(res, 404, { error: 'not-found' });
         return sendNode(res, 200, { text, title: clipTitle(text) });
+      }
+
+
+      if (url.pathname === '/dsh-prompt-stash/polish') {
+        if (req.method !== 'POST') return sendNode(res, 405, { error: 'method not allowed' });
+        let body;
+        try {
+          body = JSON.parse(await readBody(req));
+        } catch {
+          return sendNode(res, 400, { error: 'malformed body' });
+        }
+        const store = await readStore();
+        const source = body && body.text ? String(body.text) : store.entries.find((e) => e.id === body.id)?.text;
+        if (!source || !String(source).trim()) return sendNode(res, 400, { error: 'empty' });
+        const result = await polishText(ctx, source);
+        if (!result.ok) {
+          const status = result.code === 'no-model' ? 503 : 502;
+          return sendNode(res, status, result);
+        }
+        return sendNode(res, 200, { ok: true, text: result.text });
       }
 
       return sendNode(res, 404, { error: 'not found' });

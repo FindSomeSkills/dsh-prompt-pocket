@@ -44,7 +44,7 @@ for (const rel of [...Object.values(details), 'docs/DETAIL.md', 'docs/DETAIL.zh.
 pass('files 白名单覆盖 detail 与脚本');
 
 // 3. No stale claims from an earlier design.
-const dead = ['sqlite', 'prompts.db', '导入导出', '回收站', 'AI 润色', '标签树'];
+const dead = ['sqlite', 'prompts.db', '导入导出', '回收站', '标签树'];
 for (const [lang, rel] of Object.entries(details)) {
   const text = await read(rel);
   for (const s of dead) {
@@ -64,7 +64,8 @@ pass('没有把不做的功能写成功能');
 // 4. The facts this plugin actually promises are stated in both languages.
 for (const [lang, rel] of Object.entries(details)) {
   const text = await read(rel);
-  for (const s of ['Ctrl+Shift+S', 'Ctrl+Shift+P', 'dsh-prompt-stash/store.json', '500', 'prompt_stash']) {
+  const facts = ['Ctrl+Shift+S', 'Ctrl+Shift+P', 'dsh-prompt-stash/store.json', '500', 'prompt_stash', lang === 'zh' ? '润色' : 'Polish'];
+  for (const s of facts) {
     assert.ok(text.includes(s), lang + ' 的 detail 里没写 ' + s);
   }
 }

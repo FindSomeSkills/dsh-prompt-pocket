@@ -30,6 +30,14 @@ window.__ModuleLoader__.load({
       saving: '存…',
       count: '{n} 条',
       saveReply: '存为提示词',
+      polish: '润色一下',
+      polishing: '润色中…',
+      polishFail: '润色失败，原文已保留',
+      polishOriginal: '原文',
+      polishResult: '润色后',
+      accept: '用这版',
+      discard: '放弃',
+      retry: '再来一次',
     };
 
     const en = {
@@ -52,6 +60,14 @@ window.__ModuleLoader__.load({
       saving: 'Saving…',
       count: '{n} saved',
       saveReply: 'Save as prompt',
+      polish: 'Polish',
+      polishing: 'Polishing…',
+      polishFail: 'Polish failed, the original is kept',
+      polishOriginal: 'Original',
+      polishResult: 'Polished',
+      accept: 'Use this',
+      discard: 'Discard',
+      retry: 'Try again',
     };
 
     async function api(pathname, init) {
@@ -121,6 +137,7 @@ window.__ModuleLoader__.load({
       const [q, setQ] = useState('');
       const [data, setData] = useState({ entries: [], counts: { global: 0, workspace: 0 }, total: 0 });
       const [flash, setFlash] = useState(null);
+      const [polish, setPolish] = useState(null);
       const [lastId, setLastId] = useState(null);
       const spanRef = useRef(null);
       const dragRef = useRef(null);
@@ -177,6 +194,7 @@ window.__ModuleLoader__.load({
               text: t('saved').replace('{scope}', wantScope === 'workspace' ? t('savedWorkspace') : t('savedGlobal')),
               until: Date.now() + 2600,
               moveable: wantScope === 'workspace',
+              polishId: r.json.entry.id,
             });
             if (r.json.entries) setData(r.json);
             else load();
@@ -199,6 +217,32 @@ window.__ModuleLoader__.load({
           setFlash({ text: t('moved'), until: Date.now() + 1800 });
         }
       }, [lastId, t]);
+
+
+      const startPolish = useCallback(
+        async (id, original) => {
+          setPolish({ id, original, result: '', busy: true });
+          const r = await api('/polish', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ id }),
+          });
+          if (r.ok && r.json && r.json.text) setPolish({ id, original, result: r.json.text, busy: false });
+          else setPolish({ id, original, result: '', busy: false, failed: true });
+        },
+        []
+      );
+
+      const acceptPolish = useCallback(async () => {
+        if (!polish || !polish.result) return;
+        const r = await api('/mutate', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ op: 'update', id: polish.id, text: polish.result, prior: polish.original, workspaceId }),
+        });
+        if (r.ok && r.json) setData(r.json);
+        setPolish(null);
+      }, [polish, workspaceId]);
 
       const remove = useCallback(
         async (id) => {
@@ -405,7 +449,69 @@ window.__ModuleLoader__.load({
         h(
           'div',
           { style: { overflowY: 'auto', flex: 1, minHeight: 40 } },
-          rows.length === 0
+          polish
+            ? h(
+                'div',
+                { style: { padding: '8px 10px' } },
+                h('div', { style: { fontSize: 11, color: 'var(--dsw-alias-label-secondary, #888)', marginBottom: 4 } }, t('polishOriginal')),
+                h(
+                  'div',
+                  {
+                    style: {
+                      maxHeight: 84,
+                      overflowY: 'auto',
+                      whiteSpace: 'pre-wrap',
+                      fontSize: 12,
+                      marginBottom: 8,
+                      color: 'var(--dsw-alias-label-secondary, #999)',
+                    },
+                  },
+                  polish.original
+                ),
+                h('div', { style: { fontSize: 11, color: 'var(--dsw-alias-label-secondary, #888)', marginBottom: 4 } }, t('polishResult')),
+                h(
+                  'div',
+                  {
+                    style: {
+                      maxHeight: 120,
+                      overflowY: 'auto',
+                      whiteSpace: 'pre-wrap',
+                      fontSize: 12,
+                      marginBottom: 8,
+                    },
+                  },
+                  polish.busy ? t('polishing') : polish.failed ? t('polishFail') : polish.result
+                ),
+                h(
+                  'div',
+                  { style: { display: 'flex', gap: 6, justifyContent: 'flex-end' } },
+                  h('button', { type: 'button', onClick: () => setPolish(null), style: btnStyle }, t('discard')),
+                  polish.busy
+                    ? null
+                    : h(
+                        'button',
+                        { type: 'button', onClick: () => startPolish(polish.id, polish.original), style: btnStyle },
+                        t('retry')
+                      ),
+                  polish.result
+                    ? h(
+                        'button',
+                        {
+                          type: 'button',
+                          onClick: acceptPolish,
+                          style: {
+                            ...btnStyle,
+                            background: 'var(--dsw-alias-brand-primary, #4aa3ff)',
+                            color: '#fff',
+                            padding: '3px 8px',
+                          },
+                        },
+                        t('accept')
+                      )
+                    : null
+                )
+              )
+            : rows.length === 0
             ? h('p', { style: { margin: '10px', color: 'var(--dsw-alias-label-secondary, #888)', fontSize: 12 } }, q ? t('emptySearch') : t('empty'))
             : rows.map((e) =>
                 h(
@@ -435,6 +541,21 @@ window.__ModuleLoader__.load({
                   },
                   h('span', { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, e.title || e.text.slice(0, 40)),
                   h('span', { style: { color: 'var(--dsw-alias-label-secondary, #888)', fontSize: 11 } }, shortTime(e.usedAt || e.createdAt)),
+                  e.source !== 'reply' && e.text.length >= 8
+                    ? h(
+                        'button',
+                        {
+                          type: 'button',
+                          title: t('polish'),
+                          onClick: (ev) => {
+                            ev.stopPropagation();
+                            startPolish(e.id, e.text);
+                          },
+                          style: { ...btnStyle, opacity: 0.55, padding: '0 2px' },
+                        },
+                        '✦'
+                      )
+                    : null,
                   h(
                     'button',
                     {
@@ -475,6 +596,21 @@ window.__ModuleLoader__.load({
                       'button',
                       { type: 'button', onClick: moveToGlobal, style: { ...btnStyle, marginLeft: 6, color: 'inherit' } },
                       t('move')
+                    )
+                  : null,
+                flash.polishId
+                  ? h(
+                      'button',
+                      {
+                        type: 'button',
+                        onClick: (ev) => {
+                          ev.stopPropagation();
+                          const entry = (data.entries || []).find((x) => x.id === flash.polishId);
+                          if (entry) startPolish(entry.id, entry.text);
+                        },
+                        style: { ...btnStyle, marginLeft: 6, color: 'inherit' },
+                      },
+                      t('polish')
                     )
                   : null
               )

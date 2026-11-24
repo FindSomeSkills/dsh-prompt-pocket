@@ -8,7 +8,10 @@ import assert from 'node:assert/strict';
 const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'prompt-stash-'));
 process.env.DSH_HOME = tmp;
 
-const { apply } = await import('../index.js');
+const { apply, cleanPolished } = await import('../index.js');
+
+let fakeLlm = null;
+let fakeModel = null;
 
 const routes = [];
 const tools = [];
@@ -22,7 +25,7 @@ const fakeSession = {
 apply({
   webServer: { register: (r) => (routes.push(r), () => {}) },
   tools: { register: (def) => (tools.push(def), () => {}) },
-  get: (k) => (k === 'sessions' ? sessions : undefined),
+  get: (k) => (k === 'sessions' ? sessions : k === 'llm' ? fakeLlm : k === 'agentDefaultModel' ? fakeModel : undefined),
 });
 
 assert.equal(routes.length, 1, '应当只注册一条前缀路由');
@@ -226,6 +229,45 @@ const pass = (n) => ok.push(n);
   const found = await tool.execute({ op: 'search', query: 'tool saved' });
   assert.equal(found.entries.length, 1);
   pass('工具与 HTTP 读写同一份文件');
+}
+
+
+// 15. polish output is accepted only when it is a real, bounded rewrite
+{
+  const fenced = '\u0060\u0060\u0060\nclean rewrite\n\u0060\u0060\u0060';
+  const a = cleanPolished('messy prompt', fenced);
+  assert.equal(a.ok, true);
+  assert.equal(a.text, 'clean rewrite');
+  assert.equal(cleanPolished('same text', 'same text').ok, false, '没改动就不算润色');
+  assert.equal(cleanPolished('src', '   ').ok, false, '空结果必须拒收');
+  assert.equal(cleanPolished('短句', 'x'.repeat(2000)).ok, false, '涨到离谱就拒收');
+  pass('润色结果：去围栏、拒空、拒未改动、拒暴涨');
+}
+
+// 16. without an LLM the route answers 503 instead of pretending
+{
+  const r = await post('/dsh-prompt-stash/polish', { text: 'hello' });
+  assert.equal(r.status, 503);
+  assert.equal(r.json.code, 'no-model');
+  pass('没有模型时返回 503，不编造结果');
+}
+
+// 17. with a model it returns the cleaned text from the stream
+{
+  fakeModel = { currentSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-flash' }) };
+  fakeLlm = {
+    stream: async function* () {
+      yield { type: 'text-delta', index: 0, text: 'polished ' };
+      yield { type: 'text-delta', index: 0, text: 'prompt' };
+      yield { type: 'finish', reason: { kind: 'stop' } };
+    },
+  };
+  const r = await post('/dsh-prompt-stash/polish', { text: 'raw prompt' });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.text, 'polished prompt');
+  fakeLlm = null;
+  fakeModel = null;
+  pass('有模型时把流式结果拼成润色文本');
 }
 
 await fs.rm(tmp, { recursive: true, force: true });
