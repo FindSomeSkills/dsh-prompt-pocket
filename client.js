@@ -23,7 +23,8 @@ window.__ModuleLoader__.load({
       savedWorkspace: '此项目',
       move: '改存通用',
       moved: '已改存通用',
-      insertHint: '回车插入，Alt+回车替换全文',
+      insertHint: '↑↓ 选择 · 回车插入 · Alt+回车替换',
+      emptyOther: '这里还没有 · 切到{tab}（{n} 条）',
       del: '删掉',
       fail: '操作失败',
       saveEmpty: '没有可存的内容',
@@ -53,7 +54,8 @@ window.__ModuleLoader__.load({
       savedWorkspace: 'this project',
       move: 'Move to General',
       moved: 'Moved to General',
-      insertHint: 'Enter inserts, Alt+Enter replaces the draft',
+      insertHint: '↑↓ move · Enter inserts · Alt+Enter replaces',
+      emptyOther: 'Nothing here · switch to {tab} ({n})',
       del: 'Delete',
       fail: 'That did not work',
       saveEmpty: 'Nothing to save',
@@ -138,6 +140,8 @@ window.__ModuleLoader__.load({
       const [data, setData] = useState({ entries: [], counts: { global: 0, workspace: 0 }, total: 0 });
       const [flash, setFlash] = useState(null);
       const [polish, setPolish] = useState(null);
+      const [active, setActive] = useState(0);
+      const searchRef = useRef(null);
       const [lastId, setLastId] = useState(null);
       const spanRef = useRef(null);
       const dragRef = useRef(null);
@@ -342,6 +346,24 @@ window.__ModuleLoader__.load({
       }, [data.entries, q, scope]);
 
       const total = (data.counts && (data.counts.global + data.counts.workspace)) || 0;
+      const scopeCount = scope === 'global' ? (data.counts ? data.counts.global : 0) : (data.counts ? data.counts.workspace : 0);
+      const otherScope = scope === 'global' ? 'workspace' : 'global';
+      const otherCount = otherScope === 'global' ? (data.counts ? data.counts.global : 0) : (data.counts ? data.counts.workspace : 0);
+      const showOther = workspaceId && otherCount > 0 && scopeCount === 0 && !q.trim();
+
+      // Opening on an empty drawer while the other one holds prompts is how a
+      // pocket looks broken: switch once instead of showing an empty list.
+      useEffect(() => {
+        if (!open || polish || !workspaceId) return;
+        if (q.trim()) return;
+        if (scopeCount === 0 && otherCount > 0) setScope(otherScope);
+      }, [open, polish, workspaceId, scopeCount, otherCount, otherScope, q]);
+
+      useEffect(() => {
+        if (!open) return;
+        setActive(0);
+        if (searchRef.current) searchRef.current.focus();
+      }, [open]);
 
       const pill = h(
         'button',
@@ -423,7 +445,7 @@ window.__ModuleLoader__.load({
             t('title')
           ),
           h('span', { style: { flex: 1 } }),
-          h('span', { style: { fontSize: 11, color: 'var(--dsw-alias-label-secondary, #888)' } }, t('count').replace('{n}', String(total)))
+          h('span', { style: { fontSize: 11, color: 'var(--dsw-alias-label-secondary, #888)' } }, t('count').replace('{n}', String(scopeCount)))
         ),
         h(
           'div',
@@ -432,9 +454,26 @@ window.__ModuleLoader__.load({
           tabBtn(t('tabGlobal'), scope === 'global', () => setScope('global'), btnStyle)
         ),
         h('input', {
+          ref: searchRef,
           value: q,
           onChange: (e) => setQ(e.target.value),
           placeholder: t('search'),
+          onKeyDown: (ev) => {
+            if (ev.key === 'ArrowDown') {
+              ev.preventDefault();
+              setActive((i) => Math.min(rows.length - 1, i + 1));
+            } else if (ev.key === 'ArrowUp') {
+              ev.preventDefault();
+              setActive((i) => Math.max(0, i - 1));
+            } else if (ev.key === 'Enter') {
+              ev.preventDefault();
+              const entry = rows[active];
+              if (entry) insert(entry, ev.altKey);
+            } else if (ev.key === 'Escape') {
+              ev.preventDefault();
+              setOpen(false);
+            }
+          },
           style: {
             margin: '0 10px 6px',
             padding: '5px 8px',
@@ -512,8 +551,29 @@ window.__ModuleLoader__.load({
                 )
               )
             : rows.length === 0
-            ? h('p', { style: { margin: '10px', color: 'var(--dsw-alias-label-secondary, #888)', fontSize: 12 } }, q ? t('emptySearch') : t('empty'))
-            : rows.map((e) =>
+            ? h(
+                'div',
+                { style: { padding: '10px' } },
+                h(
+                  'p',
+                  { style: { margin: 0, color: 'var(--dsw-alias-label-secondary, #888)', fontSize: 12 } },
+                  q ? t('emptySearch') : t('empty')
+                ),
+                showOther
+                  ? h(
+                      'button',
+                      {
+                        type: 'button',
+                        onClick: () => setScope(otherScope),
+                        style: { ...btnStyle, padding: '2px 0', fontSize: 12, color: 'var(--dsw-alias-brand-primary, #4aa3ff)' },
+                      },
+                      t('emptyOther')
+                        .replace('{tab}', otherScope === 'global' ? t('tabGlobal') : t('tabWorkspace'))
+                        .replace('{n}', String(otherCount))
+                    )
+                  : null
+              )
+            : rows.map((e, i) =>
                 h(
                   'div',
                   {
@@ -531,12 +591,14 @@ window.__ModuleLoader__.load({
                       display: 'flex',
                       gap: 6,
                       alignItems: 'baseline',
+                      background: i === active ? 'var(--dsw-alias-bg-layer-2, rgba(127,127,127,.12))' : 'transparent',
                     },
                     onMouseEnter: (ev) => {
+                      setActive(i);
                       ev.currentTarget.style.background = 'var(--dsw-alias-bg-layer-2, rgba(127,127,127,.1))';
                     },
                     onMouseLeave: (ev) => {
-                      ev.currentTarget.style.background = 'transparent';
+                      if (rows[active] && rows[active].id !== e.id) ev.currentTarget.style.background = 'transparent';
                     },
                   },
                   h('span', { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, e.title || e.text.slice(0, 40)),
