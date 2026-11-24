@@ -38,6 +38,8 @@ window.__ModuleLoader__.load({
       polish: '润色一下',
       polishing: '润色中…',
       polishFail: '润色失败，原文已保留',
+      polishSame: '这条已经够清楚了，没有可改的地方',
+      countTotal: '共 {n} 条',
       polishOriginal: '原文',
       polishResult: '润色后',
       accept: '用这版',
@@ -72,6 +74,8 @@ window.__ModuleLoader__.load({
       polish: 'Polish',
       polishing: 'Polishing…',
       polishFail: 'Polish failed, the original is kept',
+      polishSame: 'Already clear — nothing worth changing',
+      countTotal: '{n} in total',
       polishOriginal: 'Original',
       polishResult: 'Polished',
       accept: 'Use this',
@@ -250,7 +254,8 @@ window.__ModuleLoader__.load({
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ id }),
           });
-          if (r.ok && r.json && r.json.text) setPolish({ id, original, result: r.json.text, busy: false });
+          if (r.ok && r.json && r.json.text)
+            setPolish({ id, original, result: r.json.text, busy: false, unchanged: r.json.unchanged === true });
           else setPolish({ id, original, result: '', busy: false, failed: true });
         },
         []
@@ -641,7 +646,7 @@ window.__ModuleLoader__.load({
                       marginBottom: 8,
                     },
                   },
-                  polish.busy ? t('polishing') : polish.failed ? t('polishFail') : polish.result
+                  polish.busy ? t('polishing') : polish.failed ? t('polishFail') : polish.unchanged ? t('polishSame') : polish.result
                 ),
                 h(
                   'div',
@@ -654,7 +659,7 @@ window.__ModuleLoader__.load({
                         { type: 'button', onClick: () => startPolish(polish.id, polish.original), style: btnStyle },
                         t('retry')
                       ),
-                  polish.result
+                  polish.result && !polish.unchanged
                     ? h(
                         'button',
                         {
@@ -814,7 +819,7 @@ window.__ModuleLoader__.load({
                     )
                   : null
               )
-            : h('span', null, t('count').replace('{n}', String(total)))
+            : h('span', null, t('countTotal').replace('{n}', String(total)))
         )
       );
 

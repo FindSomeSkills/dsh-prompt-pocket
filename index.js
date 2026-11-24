@@ -194,13 +194,14 @@ function replyText(sessions, sessionId, messageId) {
 
 // Polishing is opt-in: it runs only when the user clicks it, never on save.
 export const POLISH_SYSTEM = [
-  'You clean up a prompt that the user will reuse.',
-  'Keep the original language, intent and scope.',
-  'Keep every {{variable}}, path, URL, code block and quoted string byte-for-byte.',
-  'Do not add features, steps, examples or explanations.',
+  'You are editing a prompt the user keeps for reuse. You are an editor, not a paraphraser.',
+  'Change only what makes the prompt work better: split runaway sentences, put one instruction per line, make the expected output explicit, replace vague words with concrete ones, and keep every constraint the author wrote.',
+  'Never swap a word for a synonym just to vary style. If a sentence is already clear, leave it exactly as it is.',
+  'Keep the original language. Keep every {{variable}}, path, URL, code block and quoted string byte-for-byte.',
+  'Do not add features, steps, examples, sections or explanations the author did not ask for.',
   'Never grow the text past 1.3 times the input; shortening is fine.',
-  'Replace vague wording with concrete instructions and remove filler.',
-  'Output only the rewritten prompt: no preamble, no commentary, no code fences.',
+  'If nothing would materially improve, output the input unchanged, character for character.',
+  'Output only the prompt itself: no preamble, no commentary, no code fences.',
 ].join('\n');
 
 // One place decides whether a model reply is an acceptable rewrite.
@@ -212,7 +213,7 @@ export function cleanPolished(input, raw) {
   out = out.trim();
   if (!out) return { ok: false, code: 'empty' };
   if (out.length > Math.max(120, src.length * 2)) return { ok: false, code: 'too-long' };
-  if (out === src) return { ok: false, code: 'unchanged' };
+  if (out === src) return { ok: true, text: src, unchanged: true };
   return { ok: true, text: out };
 }
 
@@ -343,7 +344,7 @@ export function apply(ctx) {
           const status = result.code === 'no-model' ? 503 : 502;
           return sendNode(res, status, result);
         }
-        return sendNode(res, 200, { ok: true, text: result.text });
+        return sendNode(res, 200, { ok: true, text: result.text, unchanged: result.unchanged === true });
       }
 
       return sendNode(res, 404, { error: 'not found' });
