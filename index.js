@@ -219,7 +219,7 @@ export function cleanPolished(input, raw) {
   if (fence) out = fence[1].trim();
   out = out.trim();
   if (!out) return { ok: false, code: 'empty' };
-  if (out.length > Math.max(200, Math.round(src.length * 3.5))) return { ok: false, code: 'too-long' };
+  if (out.length > 8000) return { ok: false, code: 'too-long' };
   if (out === src) return { ok: true, text: src, unchanged: true };
   return { ok: true, text: out };
 }

@@ -245,7 +245,7 @@ const pass = (n) => ok.push(n);
   assert.equal(same.ok, true, '没改动也是合法结果');
   assert.equal(same.unchanged, true, '没改动要标出来，而不是报错');
   assert.equal(cleanPolished('src', '   ').ok, false, '空结果必须拒收');
-  assert.equal(cleanPolished('短句', 'x'.repeat(2000)).ok, false, '涨到离谱就拒收');
+  assert.equal(cleanPolished('短句', 'x'.repeat(9000)).ok, false, '超过 8000 字就拒收');
   pass('润色结果：去围栏、拒空、未改动照样返回、拒暴涨');
 }
 

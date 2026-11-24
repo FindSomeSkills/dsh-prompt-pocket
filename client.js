@@ -38,6 +38,8 @@ window.__ModuleLoader__.load({
       polish: '写成 DSH 提示词',
       polishing: '生成中…',
       polishFail: '生成失败，原文已保留',
+      polishTooLong: '生成结果超过 8000 字，没有替换原文',
+      polishNoModel: '没有可用的模型，去设置里选一个',
       polishSame: '原文已经是完整可执行的提示词，没有改',
       countTotal: '共 {n} 条',
       polishOriginal: '原文',
@@ -74,6 +76,8 @@ window.__ModuleLoader__.load({
       polish: 'Write a DSH prompt',
       polishing: 'Writing…',
       polishFail: 'Generation failed, the original is kept',
+      polishTooLong: 'The result passed 8,000 characters, so the original is kept',
+      polishNoModel: 'No model is available; pick one in settings',
       polishSame: 'The input is already an executable prompt; nothing changed',
       countTotal: '{n} in total',
       polishOriginal: 'Original',
@@ -256,7 +260,7 @@ window.__ModuleLoader__.load({
           });
           if (r.ok && r.json && r.json.text)
             setPolish({ id, original, result: r.json.text, busy: false, unchanged: r.json.unchanged === true });
-          else setPolish({ id, original, result: '', busy: false, failed: true });
+          else setPolish({ id, original, result: '', busy: false, failed: true, code: (r.json && r.json.code) || '' });
         },
         []
       );
@@ -646,7 +650,17 @@ window.__ModuleLoader__.load({
                       marginBottom: 8,
                     },
                   },
-                  polish.busy ? t('polishing') : polish.failed ? t('polishFail') : polish.unchanged ? t('polishSame') : polish.result
+                  polish.busy
+                    ? t('polishing')
+                    : polish.failed
+                      ? polish.code === 'too-long'
+                        ? t('polishTooLong')
+                        : polish.code === 'no-model'
+                          ? t('polishNoModel')
+                          : t('polishFail')
+                      : polish.unchanged
+                        ? t('polishSame')
+                        : polish.result
                 ),
                 h(
                   'div',
