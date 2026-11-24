@@ -86,7 +86,7 @@ pass('页内本地链接都能打开');
 if (await exists('docs/shot.png')) {
   for (const [lang, rel] of Object.entries(details)) {
     const lines = (await read(rel)).split(/\r?\n/).filter((l) => l.trim());
-    assert.equal(lines[0].trim(), '# dsh-prompt-stash', lang + ' 第一行应是标题');
+    assert.equal(lines[0].trim(), '# dsh-prompt-pocket', lang + ' 第一行应是标题');
     assert.match(lines[1], /^!\[[^\]]+\]\(shot\.png\)$/, lang + ' 标题下面要紧跟截图');
   }
   pass('截图紧跟标题');

@@ -1,4 +1,4 @@
-﻿﻿# Restart the DSH web host once and verify dsh-prompt-stash afterwards.
+﻿﻿# Restart the DSH web host once and verify dsh-prompt-pocket afterwards.
 # Run by an external process (scheduled task or a double-clicked .cmd), never from
 # inside the session it restarts.
 #
@@ -109,7 +109,7 @@ Check 'POST /polish reaches the model or refuses cleanly' {
 # the user. Here we only prove the host half came back on the right version.
 Check 'installed copy matches the repository version' {
   $repo = Get-Content (Join-Path $root 'package.json') -Raw | ConvertFrom-Json
-  $installed = Get-Content (Join-Path 'C:\Users\LIUY\.dsh\profiles\web\node_modules\dsh-prompt-stash' 'package.json') -Raw | ConvertFrom-Json
+  $installed = Get-Content (Join-Path 'C:\Users\LIUY\.dsh\profiles\web\node_modules\dsh-prompt-pocket' 'package.json') -Raw | ConvertFrom-Json
   if ($installed.version -ne $repo.version) { throw "installed $($installed.version), repo $($repo.version)" }
   Say "version: $($repo.version)"
   $true

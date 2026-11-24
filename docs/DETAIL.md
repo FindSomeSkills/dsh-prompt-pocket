@@ -1,4 +1,4 @@
-# dsh-prompt-stash
+# dsh-prompt-pocket
 
 **A pocket, not a library.** One 24px dot in the corner. Press `Ctrl+Shift+S` and the draft you were already typing is saved; click a row and it drops back at your caret.
 

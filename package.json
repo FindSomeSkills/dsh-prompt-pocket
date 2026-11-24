@@ -1,5 +1,5 @@
 {
-  "name": "dsh-prompt-stash",
+  "name": "dsh-prompt-pocket",
   "version": "1.0.0",
   "private": false,
   "type": "module",
@@ -60,6 +60,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/FindSomeSkills/dsh-prompt-stash"
+    "url": "https://github.com/FindSomeSkills/dsh-prompt-pocket"
   }
 }

@@ -1,4 +1,4 @@
-# dsh-prompt-stash
+# dsh-prompt-pocket
 
 **A prompt pocket that floats in the corner of DeepSeek Harness.** Press `Ctrl+Shift+S` and the draft you were already typing is saved. Click a row to put it back at your caret.
 
@@ -7,7 +7,7 @@
 ## Install
 
 ```bash
-dsh plugin --profile web add dsh-prompt-stash
+dsh plugin --profile web add dsh-prompt-pocket
 ```
 
 Restart the host once, then force-reload the page (`Ctrl+Shift+R`).

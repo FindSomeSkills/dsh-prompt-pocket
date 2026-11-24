@@ -1,4 +1,4 @@
-# dsh-prompt-stash
+# dsh-prompt-pocket
 
 **是一个口袋，不是一个库。** 角落一枚 24px 的圆点。按 `Ctrl+Shift+S`，你正在打的那段草稿就存进去了；点一条，它回到光标处。
 

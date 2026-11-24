@@ -1,4 +1,4 @@
-# dsh-prompt-stash
+# dsh-prompt-pocket
 
 **浮在 DeepSeek Harness 角落的提示词口袋。** 按 `Ctrl+Shift+S`，正在打的草稿就存进去了；点一条，它回到光标处。
 
@@ -7,7 +7,7 @@
 ## 安装
 
 ```bash
-dsh plugin --profile web add dsh-prompt-stash
+dsh plugin --profile web add dsh-prompt-pocket
 ```
 
 重启一次宿主，然后按 `Ctrl+Shift+R` 强制刷新页面。
