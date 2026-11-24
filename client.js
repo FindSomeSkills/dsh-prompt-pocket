@@ -33,7 +33,6 @@ window.__ModuleLoader__.load({
       saving: '存…',
       count: '{n} 条',
       saveReply: '存为提示词',
-      rename: '改名',
       moveToGlobal: '移到通用',
       moveToWorkspace: '移到此项目',
       polish: '写成 DSH 提示词',
@@ -72,7 +71,6 @@ window.__ModuleLoader__.load({
       saving: 'Saving…',
       count: '{n} saved',
       saveReply: 'Save as prompt',
-      rename: 'Rename',
       moveToGlobal: 'Move to General',
       moveToWorkspace: 'Move to this project',
       polish: 'Write a DSH prompt',
@@ -125,6 +123,17 @@ window.__ModuleLoader__.load({
         .replace(/[。；;]\s*$/, '')
         .trim();
       return (stripped || first).slice(0, 24);
+    }
+
+    function rowLabel(text) {
+      const flat = String(text || '')
+        .replace(/\r?\n/g, ' ')
+        .replace(/[*#>`]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const stripped = flat.replace(/^(目标|任务|背景|要求|角色|上下文)[:：]\s*/, '');
+      const label = (stripped || flat).trim();
+      return label.length > 60 ? label.slice(0, 60) + '…' : label;
     }
 
     function previewOf(text) {
@@ -193,7 +202,6 @@ window.__ModuleLoader__.load({
       const [flash, setFlash] = useState(null);
       const [polish, setPolish] = useState(null);
       const [active, setActive] = useState(0);
-      const [renaming, setRenaming] = useState(null);
       const searchRef = useRef(null);
       const panelRef = useRef(null);
       const [lastId, setLastId] = useState(null);
@@ -304,21 +312,6 @@ window.__ModuleLoader__.load({
         if (r.ok && r.json) setData(r.json);
         setPolish(null);
       }, [polish, workspaceId]);
-
-      const renameEntry = useCallback(
-        async (entry, value) => {
-          const title = String(value || '').trim();
-          setRenaming(null);
-          if (!title || title === entry.title) return;
-          const r = await api('/mutate', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ op: 'update', id: entry.id, text: entry.text, title, workspaceId }),
-          });
-          if (r.ok && r.json) setData(r.json);
-        },
-        [workspaceId]
-      );
 
       const moveEntry = useCallback(
         async (entry, target) => {
@@ -793,69 +786,10 @@ window.__ModuleLoader__.load({
                   },
                   h(
                     'span',
-                    { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 } },
-                    renaming && renaming.id === e.id
-                      ? h('input', {
-                          autoFocus: true,
-                          value: renaming.value,
-                          onClick: (ev) => ev.stopPropagation(),
-                          onChange: (ev) => setRenaming({ id: e.id, value: ev.target.value }),
-                          onKeyDown: (ev) => {
-                            if (ev.key === 'Enter') {
-                              ev.preventDefault();
-                              ev.stopPropagation();
-                              renameEntry(e, renaming.value);
-                            } else if (ev.key === 'Escape') {
-                              ev.preventDefault();
-                              ev.stopPropagation();
-                              setRenaming(null);
-                            }
-                          },
-                          onBlur: () => setRenaming(null),
-                          style: {
-                            background: 'var(--dsw-alias-bg-base, transparent)',
-                            border: '1px solid var(--dsw-alias-brand-primary, #4aa3ff)',
-                            borderRadius: 4,
-                            color: 'inherit',
-                            fontSize: 12,
-                            outline: 'none',
-                            padding: '1px 4px',
-                            width: '100%',
-                          },
-                        })
-                      : h(
-                          'span',
-                          { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
-                          deriveTitle(e.title || e.text)
-                        ),
-                    h(
-                      'span',
-                      {
-                        style: {
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          fontSize: 11,
-                          color: 'var(--dsw-alias-label-secondary, #888)',
-                        },
-                      },
-                      previewOf(e.text)
-                    )
+                    { style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
+                    rowLabel(e.text)
                   ),
                   h('span', { style: { color: 'var(--dsw-alias-label-secondary, #888)', fontSize: 11 } }, shortTime(e.usedAt || e.createdAt)),
-                  h(
-                    'button',
-                    {
-                      type: 'button',
-                      title: t('rename'),
-                      onClick: (ev) => {
-                        ev.stopPropagation();
-                        setRenaming({ id: e.id, value: deriveTitle(e.title || e.text) });
-                      },
-                      style: { ...btnStyle, opacity: 0.55, padding: '0 2px' },
-                    },
-                    '✎'
-                  ),
                   e.scope === 'workspace' || workspaceId
                     ? h(
                         'button',
