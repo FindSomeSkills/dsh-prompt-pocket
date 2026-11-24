@@ -33,6 +33,7 @@ window.__ModuleLoader__.load({
       saving: '存…',
       count: '{n} 条',
       saveReply: '存为提示词',
+      rename: '改名',
       moveToGlobal: '移到通用',
       moveToWorkspace: '移到此项目',
       polish: '写成 DSH 提示词',
@@ -71,6 +72,7 @@ window.__ModuleLoader__.load({
       saving: 'Saving…',
       count: '{n} saved',
       saveReply: 'Save as prompt',
+      rename: 'Rename',
       moveToGlobal: 'Move to General',
       moveToWorkspace: 'Move to this project',
       polish: 'Write a DSH prompt',
@@ -107,6 +109,31 @@ window.__ModuleLoader__.load({
         /* ignore */
       }
       return null;
+    }
+
+
+    // A prompt's first line is usually an instruction, not a name. Strip the
+    // common lead-ins so the row reads like a label the user can scan.
+    function deriveTitle(text) {
+      const first = String(text || '')
+        .split(/\r?\n/)
+        .map((l) => l.replace(/^[#>*\-\s]+/, '').trim())
+        .find((l) => l) || '';
+      const stripped = first
+        .replace(/^(目标|任务|背景|要求|角色|上下文)[:：]\s*/, '')
+        .replace(/\*\*/g, '')
+        .replace(/[。；;]\s*$/, '')
+        .trim();
+      return (stripped || first).slice(0, 24);
+    }
+
+    function previewOf(text) {
+      return String(text || '')
+        .replace(/\r?\n/g, ' ')
+        .replace(/[*#>`]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 44);
     }
 
     function readPos() {
@@ -166,6 +193,7 @@ window.__ModuleLoader__.load({
       const [flash, setFlash] = useState(null);
       const [polish, setPolish] = useState(null);
       const [active, setActive] = useState(0);
+      const [renaming, setRenaming] = useState(null);
       const searchRef = useRef(null);
       const panelRef = useRef(null);
       const [lastId, setLastId] = useState(null);
@@ -213,6 +241,7 @@ window.__ModuleLoader__.load({
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({
               op: 'save',
+              title: deriveTitle(text),
               text,
               scope: (opts && opts.scope) || wantScope,
               workspaceId,
@@ -275,6 +304,21 @@ window.__ModuleLoader__.load({
         if (r.ok && r.json) setData(r.json);
         setPolish(null);
       }, [polish, workspaceId]);
+
+      const renameEntry = useCallback(
+        async (entry, value) => {
+          const title = String(value || '').trim();
+          setRenaming(null);
+          if (!title || title === entry.title) return;
+          const r = await api('/mutate', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ op: 'update', id: entry.id, text: entry.text, title, workspaceId }),
+          });
+          if (r.ok && r.json) setData(r.json);
+        },
+        [workspaceId]
+      );
 
       const moveEntry = useCallback(
         async (entry, target) => {
@@ -721,10 +765,14 @@ window.__ModuleLoader__.load({
                     key: e.id,
                     role: 'button',
                     tabIndex: 0,
+                    title: e.text.length > 80 ? e.text.slice(0, 300) : e.text,
                     onKeyDown: (ev) => {
                       if (ev.key === 'Enter') insert(e, ev.altKey);
                     },
-                    onClick: (ev) => insert(e, ev.altKey),
+                    onClick: (ev) => {
+                      if (ev.detail > 1) return;
+                      insert(e, ev.altKey);
+                    },
                     style: {
                       padding: '6px 10px',
                       cursor: 'pointer',
@@ -743,8 +791,71 @@ window.__ModuleLoader__.load({
                       if (rows[active] && rows[active].id !== e.id) ev.currentTarget.style.background = 'transparent';
                     },
                   },
-                  h('span', { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, e.title || e.text.slice(0, 40)),
+                  h(
+                    'span',
+                    { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 } },
+                    renaming && renaming.id === e.id
+                      ? h('input', {
+                          autoFocus: true,
+                          value: renaming.value,
+                          onClick: (ev) => ev.stopPropagation(),
+                          onChange: (ev) => setRenaming({ id: e.id, value: ev.target.value }),
+                          onKeyDown: (ev) => {
+                            if (ev.key === 'Enter') {
+                              ev.preventDefault();
+                              ev.stopPropagation();
+                              renameEntry(e, renaming.value);
+                            } else if (ev.key === 'Escape') {
+                              ev.preventDefault();
+                              ev.stopPropagation();
+                              setRenaming(null);
+                            }
+                          },
+                          onBlur: () => setRenaming(null),
+                          style: {
+                            background: 'var(--dsw-alias-bg-base, transparent)',
+                            border: '1px solid var(--dsw-alias-brand-primary, #4aa3ff)',
+                            borderRadius: 4,
+                            color: 'inherit',
+                            fontSize: 12,
+                            outline: 'none',
+                            padding: '1px 4px',
+                            width: '100%',
+                          },
+                        })
+                      : h(
+                          'span',
+                          { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
+                          deriveTitle(e.title || e.text)
+                        ),
+                    h(
+                      'span',
+                      {
+                        style: {
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          fontSize: 11,
+                          color: 'var(--dsw-alias-label-secondary, #888)',
+                        },
+                      },
+                      previewOf(e.text)
+                    )
+                  ),
                   h('span', { style: { color: 'var(--dsw-alias-label-secondary, #888)', fontSize: 11 } }, shortTime(e.usedAt || e.createdAt)),
+                  h(
+                    'button',
+                    {
+                      type: 'button',
+                      title: t('rename'),
+                      onClick: (ev) => {
+                        ev.stopPropagation();
+                        setRenaming({ id: e.id, value: deriveTitle(e.title || e.text) });
+                      },
+                      style: { ...btnStyle, opacity: 0.55, padding: '0 2px' },
+                    },
+                    '✎'
+                  ),
                   e.scope === 'workspace' || workspaceId
                     ? h(
                         'button',
@@ -888,7 +999,7 @@ window.__ModuleLoader__.load({
               body: JSON.stringify({
                 op: 'save',
                 text: r.json.text,
-                title: r.json.title,
+                title: deriveTitle(r.json.text),
                 scope: workspaceId ? 'workspace' : 'global',
                 workspaceId,
                 source: 'reply',
