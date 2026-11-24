@@ -8,6 +8,7 @@ window.__ModuleLoader__.load({
 
     const EP = '/dsh-prompt-stash';
     const POS_KEY = 'dsh-prompt-stash.pos';
+    const SCOPE_KEY = 'dsh-prompt-stash.scope';
     const NS = 'plugin.dsh-prompt-stash';
 
     const zh = {
@@ -32,6 +33,8 @@ window.__ModuleLoader__.load({
       saving: '存…',
       count: '{n} 条',
       saveReply: '存为提示词',
+      moveToGlobal: '移到通用',
+      moveToWorkspace: '移到此项目',
       polish: '润色一下',
       polishing: '润色中…',
       polishFail: '润色失败，原文已保留',
@@ -64,6 +67,8 @@ window.__ModuleLoader__.load({
       saving: 'Saving…',
       count: '{n} saved',
       saveReply: 'Save as prompt',
+      moveToGlobal: 'Move to General',
+      moveToWorkspace: 'Move to this project',
       polish: 'Polish',
       polishing: 'Polishing…',
       polishFail: 'Polish failed, the original is kept',
@@ -84,6 +89,16 @@ window.__ModuleLoader__.load({
         /* non-JSON */
       }
       return { ok: r.ok, status: r.status, json };
+    }
+
+    function readScope() {
+      try {
+        const s = localStorage.getItem(SCOPE_KEY);
+        if (s === 'global' || s === 'workspace') return s;
+      } catch {
+        /* ignore */
+      }
+      return null;
     }
 
     function readPos() {
@@ -183,7 +198,8 @@ window.__ModuleLoader__.load({
             setFlash({ text: t('saveEmpty'), until: Date.now() + 2000 });
             return;
           }
-          const wantScope = workspaceId ? 'workspace' : 'global';
+          const remembered = readScope();
+          const wantScope = (opts && opts.scope) || (workspaceId ? remembered === 'global' || scope === 'global' ? 'global' : 'workspace' : 'global');
           const r = await api('/mutate', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
@@ -199,7 +215,7 @@ window.__ModuleLoader__.load({
             setLastId(r.json.entry.id);
             setFlash({
               text: t('saved').replace('{scope}', wantScope === 'workspace' ? t('savedWorkspace') : t('savedGlobal')),
-              until: Date.now() + 2600,
+              until: Date.now() + 6000,
               moveable: wantScope === 'workspace',
               polishId: r.json.entry.id,
             });
@@ -209,7 +225,7 @@ window.__ModuleLoader__.load({
             setFlash({ text: t('fail'), until: Date.now() + 2000 });
           }
         },
-        [draft, workspaceId, load, t]
+        [draft, workspaceId, load, t, scope]
       );
 
       const moveToGlobal = useCallback(async () => {
@@ -250,6 +266,18 @@ window.__ModuleLoader__.load({
         if (r.ok && r.json) setData(r.json);
         setPolish(null);
       }, [polish, workspaceId]);
+
+      const moveEntry = useCallback(
+        async (entry, target) => {
+          const r = await api('/mutate', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ op: 'move', id: entry.id, scope: target, workspaceId }),
+          });
+          if (r.ok && r.json) setData(r.json);
+        },
+        [workspaceId]
+      );
 
       const remove = useCallback(
         async (id) => {
@@ -348,6 +376,15 @@ window.__ModuleLoader__.load({
           .filter((e) => !needle || (e.title + '\n' + e.text).toLowerCase().includes(needle));
       }, [data.entries, q, scope]);
 
+      const pick = useCallback((next) => {
+        setScope(next);
+        try {
+          localStorage.setItem(SCOPE_KEY, next);
+        } catch {
+          /* ignore */
+        }
+      }, []);
+
       const total = (data.counts && (data.counts.global + data.counts.workspace)) || 0;
       const scopeCount = scope === 'global' ? (data.counts ? data.counts.global : 0) : (data.counts ? data.counts.workspace : 0);
       const otherScope = scope === 'global' ? 'workspace' : 'global';
@@ -355,12 +392,20 @@ window.__ModuleLoader__.load({
       const showOther = workspaceId && otherCount > 0 && scopeCount === 0 && !q.trim();
 
       // Opening on an empty drawer while the other one holds prompts is how a
-      // pocket looks broken: switch once instead of showing an empty list.
+      // pocket looks broken. Switch once per open, and never again: an explicit
+      // tab click must win, or the tab looks broken.
+      const autoSwitched = useRef(false);
       useEffect(() => {
-        if (!open || polish || !workspaceId) return;
-        if (q.trim()) return;
-        if (scopeCount === 0 && otherCount > 0) setScope(otherScope);
-      }, [open, polish, workspaceId, scopeCount, otherCount, otherScope, q]);
+        if (!open) {
+          autoSwitched.current = false;
+          return;
+        }
+        if (autoSwitched.current || !workspaceId || q.trim()) return;
+        if (scopeCount === 0 && otherCount > 0) {
+          autoSwitched.current = true;
+          setScope(otherScope);
+        }
+      }, [open, workspaceId, scopeCount, otherCount, otherScope, q]);
 
       useEffect(() => {
         if (active > rows.length - 1) setActive(Math.max(0, rows.length - 1));
@@ -450,7 +495,59 @@ window.__ModuleLoader__.load({
         String(total)
       );
 
-      if (!open) return createPortal(pill, document.body);
+      if (!open) {
+        const bubble = flash
+          ? h(
+              'div',
+              {
+                'data-dsh-prompt-stash': 'toast',
+                style: {
+                  position: 'fixed',
+                  right: Math.min(pos.right + 28, Math.max(8, window.innerWidth - 260)),
+                  bottom: pos.bottom - 4,
+                  maxWidth: 250,
+                  padding: '4px 8px',
+                  borderRadius: 6,
+                  border: '1px solid var(--dsw-alias-border-l1, rgba(127,127,127,.3))',
+                  background: 'var(--dsw-alias-bg-layer-1, #1c1c1e)',
+                  color: 'var(--dsw-alias-label-primary, #eee)',
+                  fontSize: 11,
+                  zIndex: 61,
+                  display: 'flex',
+                  gap: 6,
+                  alignItems: 'center',
+                  boxShadow: '0 4px 14px rgba(0,0,0,.18)',
+                },
+              },
+              h('span', null, flash.text),
+              flash.moveable
+                ? h(
+                    'button',
+                    { type: 'button', onClick: moveToGlobal, style: { ...btnStyle, fontSize: 11, color: 'var(--dsw-alias-brand-primary, #4aa3ff)' } },
+                    t('move')
+                  )
+                : null,
+              flash.polishId
+                ? h(
+                    'button',
+                    {
+                      type: 'button',
+                      onClick: () => {
+                        const entry = (data.entries || []).find((x) => x.id === flash.polishId);
+                        if (entry) {
+                          setOpen(true);
+                          startPolish(entry.id, entry.text);
+                        }
+                      },
+                      style: { ...btnStyle, fontSize: 11, color: 'var(--dsw-alias-brand-primary, #4aa3ff)' },
+                    },
+                    t('polish')
+                  )
+                : null
+            )
+          : null;
+        return createPortal(h('div', null, pill, bubble), document.body);
+      }
 
       const panel = h(
         'div',
@@ -490,8 +587,8 @@ window.__ModuleLoader__.load({
         h(
           'div',
           { style: { display: 'flex', gap: 4, padding: '0 10px 6px' } },
-          workspaceId ? tabBtn(t('tabWorkspace'), scope === 'workspace', () => setScope('workspace'), btnStyle) : null,
-          tabBtn(t('tabGlobal'), scope === 'global', () => setScope('global'), btnStyle)
+          workspaceId ? tabBtn(t('tabWorkspace'), scope === 'workspace', () => pick('workspace'), btnStyle) : null,
+          tabBtn(t('tabGlobal'), scope === 'global', () => pick('global'), btnStyle)
         ),
         h('input', {
           ref: searchRef,
@@ -629,6 +726,21 @@ window.__ModuleLoader__.load({
                   },
                   h('span', { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, e.title || e.text.slice(0, 40)),
                   h('span', { style: { color: 'var(--dsw-alias-label-secondary, #888)', fontSize: 11 } }, shortTime(e.usedAt || e.createdAt)),
+                  e.scope === 'workspace' || workspaceId
+                    ? h(
+                        'button',
+                        {
+                          type: 'button',
+                          title: e.scope === 'workspace' ? t('moveToGlobal') : t('moveToWorkspace'),
+                          onClick: (ev) => {
+                            ev.stopPropagation();
+                            moveEntry(e, e.scope === 'workspace' ? 'global' : 'workspace');
+                          },
+                          style: { ...btnStyle, opacity: 0.55, padding: '0 2px' },
+                        },
+                        '⇄'
+                      )
+                    : null,
                   e.source !== 'reply' && e.text.length >= 8
                     ? h(
                         'button',
