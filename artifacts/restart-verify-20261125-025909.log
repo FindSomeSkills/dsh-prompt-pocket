@@ -1,0 +1,9 @@
+﻿[02:59:09] restart: looking for the process listening on 2081
+[02:59:10] restart: stopping pid 1956
+[02:59:13] restart: starting the DSH021-Web task
+[02:59:25] restart: port 2081 listening after 10s (pid 14880)
+[02:59:27] PASS: GET /state answers 200 with cap 500
+[02:59:27] PASS: POST /mutate save writes one entry
+[02:59:27] PASS: POST /mutate remove deletes it again
+[02:59:28] polish: model returned 100 chars
+[02:59:28] PASS: POST /polish reaches the model or refuses cleanly

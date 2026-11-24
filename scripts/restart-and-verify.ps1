@@ -1,4 +1,4 @@
-﻿# Restart the DSH web host once and verify dsh-prompt-stash afterwards.
+﻿﻿# Restart the DSH web host once and verify dsh-prompt-stash afterwards.
 # Run by an external process (scheduled task or a double-clicked .cmd), never from
 # inside the session it restarts.
 #
@@ -33,7 +33,7 @@ if ($null -eq $conn) {
 }
 
 Say 'restart: starting the DSH021-Web task'
-schtasks /run /tn DSH021-Web | Out-Null
+Start-Process -FilePath 'schtasks.exe' -ArgumentList '/run','/tn','DSH021-Web' -WindowStyle Hidden -Wait | Out-Null
 
 $up = $false
 for ($i = 1; $i -le 90; $i++) {
@@ -113,6 +113,8 @@ Check 'installed copy reports 0.2.0' {
   if ($j.version -ne '0.2.0') { throw "version $($j.version)" }
   $true
 } | Out-Null
+
+Say ("done: failures={0}" -f $failures)
 
 if ($failures -gt 0) {
   Say "RESULT: $failures check(s) failed. Log: $logPath"
