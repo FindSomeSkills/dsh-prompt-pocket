@@ -64,7 +64,7 @@ pass('没有把不做的功能写成功能');
 // 4. The facts this plugin actually promises are stated in both languages.
 for (const [lang, rel] of Object.entries(details)) {
   const text = await read(rel);
-  const facts = ['Ctrl+Shift+S', 'Ctrl+Shift+P', 'dsh-prompt-stash/store.json', '500', 'prompt_stash', lang === 'zh' ? '润色' : 'Polish'];
+  const facts = ['Ctrl+Shift+S', 'Ctrl+Shift+P', 'dsh-prompt-stash/store.json', '500', 'prompt_stash', 'DSH'];
   for (const s of facts) {
     assert.ok(text.includes(s), lang + ' 的 detail 里没写 ' + s);
   }

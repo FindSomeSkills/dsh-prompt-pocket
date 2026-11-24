@@ -21,7 +21,7 @@ Restart the host once, then force-reload the page (`Ctrl+Shift+R`).
 | Insert a prompt at the caret | `Enter` on a row |
 | Replace the whole draft with it | `Alt+Enter` |
 
-Polishing is opt-in: the save chip and each row with a star give you a diff, and a failed rewrite never replaces the original.
+Turning a note into a DSH prompt is opt-in: the save chip and each row with a star give you a diff, and a failed run never replaces the original.
 
 Two drawers: **This project** (every session in the same workspace) and **General** (everywhere). Saving never opens a dialog.
 

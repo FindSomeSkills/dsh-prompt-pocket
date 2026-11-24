@@ -107,10 +107,11 @@ Check 'POST /polish reaches the model or refuses cleanly' {
 
 # A client-only check: the page itself is authenticated, so the GUI is verified by
 # the user. Here we only prove the host half came back on the right version.
-Check 'installed copy reports 0.2.0' {
-  $p = Join-Path 'C:\Users\LIUY\.dsh\profiles\web\node_modules\dsh-prompt-stash\package.json'
-  $j = Get-Content $p -Raw | ConvertFrom-Json
-  if ($j.version -ne '0.2.0') { throw "version $($j.version)" }
+Check 'installed copy matches the repository version' {
+  $repo = Get-Content (Join-Path $root 'package.json') -Raw | ConvertFrom-Json
+  $installed = Get-Content (Join-Path 'C:\Users\LIUY\.dsh\profiles\web\node_modules\dsh-prompt-stash' 'package.json') -Raw | ConvertFrom-Json
+  if ($installed.version -ne $repo.version) { throw "installed $($installed.version), repo $($repo.version)" }
+  Say "version: $($repo.version)"
   $true
 } | Out-Null
 

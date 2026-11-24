@@ -29,15 +29,17 @@ Click the dot (or `Ctrl+Shift+P`). Type to filter, `Enter` inserts at the caret,
 
 **The insert is one undo step and does not touch the rest of the draft.** It goes through the composer's revision-guarded insert, so a quote chip or an attachment you already had stays where it is.
 
-## Polishing, when you ask for it
+## Writing a DSH prompt, when you ask for it
 
-**Polishing never happens on save.** The two-second line after a save has a «Polish» button, and every non-reply row has ✦. Nothing is rewritten until you click one of them.
+**Nothing is rewritten on save.** The two-second chip after a save has a «Write a DSH prompt» button, and every non-reply row has ✦. Until you click one, the text stays exactly as you typed it.
 
-You get the original and the rewrite side by side, then choose: use this one, discard, or try again. Accepting keeps the old text in `prior`, so one click gets it back. **A failed or empty result never replaces anything** — the original stays and the line says so.
+What comes back is not a prettier version of your sentence. **It is a prompt written for DSH**: the goal in one line, the context and paths you mentioned, ordered steps or constraints, and the shape of the answer you expect. Your `{{variables}}`, paths, URLs and code blocks are kept byte-for-byte, and nothing you did not state gets invented.
+
+You get the original and the generated prompt side by side, then choose: use this one, discard, or try again. Accepting keeps the old text in `prior`. **A failed or empty result never replaces anything** — the original stays and the line says so. If the input is already an executable prompt, it comes back unchanged and the panel says so instead of pretending to work.
 
 Replies saved from the chat are marked as source material and get no ✦: you kept them verbatim on purpose.
 
-The rewrite runs on your current default model, with a fixed instruction set: same language, keep every `{{variable}}`, path, URL and code block byte-for-byte, no added steps, no growth past 1.3×.
+The generation runs on your current default model.
 
 ## Limits
 

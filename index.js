@@ -194,14 +194,21 @@ function replyText(sessions, sessionId, messageId) {
 
 // Polishing is opt-in: it runs only when the user clicks it, never on save.
 export const POLISH_SYSTEM = [
-  'You are editing a prompt the user keeps for reuse. You are an editor, not a paraphraser.',
-  'Change only what makes the prompt work better: split runaway sentences, put one instruction per line, make the expected output explicit, replace vague words with concrete ones, and keep every constraint the author wrote.',
-  'Never swap a word for a synonym just to vary style. If a sentence is already clear, leave it exactly as it is.',
-  'Keep the original language. Keep every {{variable}}, path, URL, code block and quoted string byte-for-byte.',
-  'Do not add features, steps, examples, sections or explanations the author did not ask for.',
-  'Never grow the text past 1.3 times the input; shortening is fine.',
-  'If nothing would materially improve, output the input unchanged, character for character.',
-  'Output only the prompt itself: no preamble, no commentary, no code fences.',
+  'You turn a rough note into a professional prompt for DeepSeek Harness (DSH), an agentic coding harness.',
+  'The input is the author\'s intent, not wording to preserve: rewrite it into a prompt an agent can execute.',
+  'Structure the result, but only where it carries information:',
+  '- the goal in one sentence;',
+  '- the context, inputs and file paths the author mentioned;',
+  '- ordered steps or constraints;',
+  '- the expected output shape.',
+  'Rules:',
+  '- Keep the author\'s language.',
+  '- Keep every {{variable}}, path, URL, code block and quoted string byte-for-byte.',
+  '- Never invent facts, tools, files, APIs, requirements or numeric values the author did not state.',
+  '- Never pad with generic advice such as be careful, ensure quality, or think step by step.',
+  '- A prompt earns its length through information, not through headings; drop a section when it would be empty.',
+  '- If the input is already a complete, executable prompt, return it unchanged character for character.',
+  'Output only the prompt text: no preamble, no commentary, no code fences.',
 ].join('\n');
 
 // One place decides whether a model reply is an acceptable rewrite.
@@ -212,7 +219,7 @@ export function cleanPolished(input, raw) {
   if (fence) out = fence[1].trim();
   out = out.trim();
   if (!out) return { ok: false, code: 'empty' };
-  if (out.length > Math.max(120, src.length * 2)) return { ok: false, code: 'too-long' };
+  if (out.length > Math.max(200, Math.round(src.length * 3.5))) return { ok: false, code: 'too-long' };
   if (out === src) return { ok: true, text: src, unchanged: true };
   return { ok: true, text: out };
 }
