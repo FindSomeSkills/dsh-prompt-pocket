@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-  id: 'dsh-prompt-stash',
+  id: 'dsh-prompt-pocket',
   factory(require) {
     const React = require('react');
     const { createPortal } = require('react-dom');
@@ -963,7 +963,7 @@ window.__ModuleLoader__.load({
         const t = ctx.locale.bind(NS);
         const Bound = (props) => h(Pocket, { ...props, t });
         ctx.slots.inject('conversation.input.overlay', () =>
-          ctx.slots.register({ name: 'conversation.input.overlay', id: 'dsh-prompt-stash', order: 20 }, Bound)
+          ctx.slots.register({ name: 'conversation.input.overlay', id: 'dsh-prompt-pocket', order: 20 }, Bound)
         );
         const ReplyBound = (props) => h(ReplySaveAction, { ...props, t });
         ctx.slots.inject('conversation.chat.assistant-actions', () =>

@@ -53,7 +53,7 @@ globalThis.fetch = () => {
 await import('../client.js');
 
 assert.ok(loaded, 'bundle 应调用 __ModuleLoader__.load');
-assert.equal(loaded.id, 'dsh-prompt-stash');
+assert.equal(loaded.id, 'dsh-prompt-pocket');
 pass('bundle 以正确 id 注册');
 
 const mod = loaded.factory((name) => {
@@ -93,7 +93,7 @@ mod.apply({
 
 assert.equal(slots.length, 2, '应当挂两个位置：输入框浮层 + 回复动作');
 assert.equal(slots[0].meta.name, 'conversation.input.overlay');
-assert.equal(slots[0].meta.id, 'dsh-prompt-stash');
+assert.equal(slots[0].meta.id, 'dsh-prompt-pocket');
 assert.equal(slots[1].meta.name, 'conversation.chat.assistant-actions');
 assert.equal(slots[1].meta.order, 30);
 pass('挂到输入框浮层与回复动作行');
