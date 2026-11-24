@@ -667,8 +667,8 @@ window.__ModuleLoader__.load({
                           onClick: acceptPolish,
                           style: {
                             ...btnStyle,
-                            background: 'var(--dsw-alias-brand-primary, #4aa3ff)',
-                            color: '#fff',
+                            border: '1px solid var(--dsw-alias-brand-primary, #4aa3ff)',
+                            color: 'var(--dsw-alias-brand-primary, #4aa3ff)',
                             padding: '3px 8px',
                           },
                         },
