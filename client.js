@@ -124,6 +124,7 @@ window.__ModuleLoader__.load({
       const [lastId, setLastId] = useState(null);
       const spanRef = useRef(null);
       const dragRef = useRef(null);
+      const movedRef = useRef(false);
       const rootRef = useRef(null);
 
       useEffect(() => {
@@ -267,9 +268,11 @@ window.__ModuleLoader__.load({
         ev.preventDefault();
         const start = { x: ev.clientX, y: ev.clientY, right: pos.right, bottom: pos.bottom };
         dragRef.current = start;
+        movedRef.current = false;
         const onMove = (e) => {
           const s = dragRef.current;
           if (!s) return;
+          if (Math.abs(e.clientX - s.x) + Math.abs(e.clientY - s.y) > 3) movedRef.current = true;
           const right = Math.max(4, Math.min(window.innerWidth - 34, s.right - (e.clientX - s.x)));
           const bottom = Math.max(4, Math.min(window.innerHeight - 34, s.bottom - (e.clientY - s.y)));
           setPos({ right, bottom });
@@ -304,6 +307,10 @@ window.__ModuleLoader__.load({
           title: t('open'),
           onPointerDown: onPillDown,
           onClick: () => {
+            if (movedRef.current) {
+              movedRef.current = false;
+              return;
+            }
             remember();
             setOpen((v) => !v);
             load();
