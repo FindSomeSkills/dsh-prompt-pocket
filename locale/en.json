@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Prompt pocket",
+    "description": "A prompt pocket that floats in the corner: Ctrl+Shift+S saves the draft or the selected text, a click drops a saved prompt back at the caret.",
+    "detail": "docs/DETAIL.md"
+  }
+}
