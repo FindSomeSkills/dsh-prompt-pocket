@@ -24,6 +24,7 @@ window.__ModuleLoader__.load({
       move: '改存通用',
       moved: '已改存通用',
       insertHint: '↑↓ 选择 · 回车插入 · Alt+回车替换',
+      insertHintOne: '回车插入 · Alt+回车替换',
       emptyOther: '这里还没有 · 切到{tab}（{n} 条）',
       del: '删掉',
       fail: '操作失败',
@@ -55,6 +56,7 @@ window.__ModuleLoader__.load({
       move: 'Move to General',
       moved: 'Moved to General',
       insertHint: '↑↓ move · Enter inserts · Alt+Enter replaces',
+      insertHintOne: 'Enter inserts · Alt+Enter replaces',
       emptyOther: 'Nothing here · switch to {tab} ({n})',
       del: 'Delete',
       fail: 'That did not work',
@@ -142,6 +144,7 @@ window.__ModuleLoader__.load({
       const [polish, setPolish] = useState(null);
       const [active, setActive] = useState(0);
       const searchRef = useRef(null);
+      const panelRef = useRef(null);
       const [lastId, setLastId] = useState(null);
       const spanRef = useRef(null);
       const dragRef = useRef(null);
@@ -360,10 +363,46 @@ window.__ModuleLoader__.load({
       }, [open, polish, workspaceId, scopeCount, otherCount, otherScope, q]);
 
       useEffect(() => {
+        if (active > rows.length - 1) setActive(Math.max(0, rows.length - 1));
+      }, [rows.length, active]);
+
+      useEffect(() => {
         if (!open) return;
         setActive(0);
         if (searchRef.current) searchRef.current.focus();
       }, [open]);
+
+      // Native capture listener on the document: the composer owns key handling for
+      // its own editor, and a portal escapes that tree, so the listener is scoped to
+      // our panel by a containment check instead of relying on the input's bubble.
+      useEffect(() => {
+        if (!open) return undefined;
+        const onKey = (ev) => {
+          const panel = panelRef.current;
+          if (!panel || !panel.contains(ev.target)) return;
+          if (ev.isComposing) return;
+          if (ev.key === 'ArrowDown') {
+            ev.preventDefault();
+            ev.stopPropagation();
+            setActive((i) => (rows.length ? (i + 1) % rows.length : 0));
+          } else if (ev.key === 'ArrowUp') {
+            ev.preventDefault();
+            ev.stopPropagation();
+            setActive((i) => (rows.length ? (i - 1 + rows.length) % rows.length : 0));
+          } else if (ev.key === 'Enter') {
+            ev.preventDefault();
+            ev.stopPropagation();
+            const entry = rows[active];
+            if (entry) insert(entry, ev.altKey);
+          } else if (ev.key === 'Escape') {
+            ev.preventDefault();
+            ev.stopPropagation();
+            setOpen(false);
+          }
+        };
+        document.addEventListener('keydown', onKey, true);
+        return () => document.removeEventListener('keydown', onKey, true);
+      }, [open, rows, active, insert]);
 
       const pill = h(
         'button',
@@ -417,6 +456,7 @@ window.__ModuleLoader__.load({
         'div',
         {
           'data-dsh-prompt-stash': 'panel',
+          ref: panelRef,
           onPointerDown: remember,
           style: {
             position: 'fixed',
@@ -458,22 +498,7 @@ window.__ModuleLoader__.load({
           value: q,
           onChange: (e) => setQ(e.target.value),
           placeholder: t('search'),
-          onKeyDown: (ev) => {
-            if (ev.key === 'ArrowDown') {
-              ev.preventDefault();
-              setActive((i) => Math.min(rows.length - 1, i + 1));
-            } else if (ev.key === 'ArrowUp') {
-              ev.preventDefault();
-              setActive((i) => Math.max(0, i - 1));
-            } else if (ev.key === 'Enter') {
-              ev.preventDefault();
-              const entry = rows[active];
-              if (entry) insert(entry, ev.altKey);
-            } else if (ev.key === 'Escape') {
-              ev.preventDefault();
-              setOpen(false);
-            }
-          },
+
           style: {
             margin: '0 10px 6px',
             padding: '5px 8px',
@@ -591,7 +616,8 @@ window.__ModuleLoader__.load({
                       display: 'flex',
                       gap: 6,
                       alignItems: 'baseline',
-                      background: i === active ? 'var(--dsw-alias-bg-layer-2, rgba(127,127,127,.12))' : 'transparent',
+                      background: i === active ? 'var(--dsw-alias-bg-layer-2, rgba(127,127,127,.2))' : 'transparent',
+                      boxShadow: i === active ? 'inset 2px 0 0 var(--dsw-alias-brand-primary, #4aa3ff)' : 'none',
                     },
                     onMouseEnter: (ev) => {
                       setActive(i);
@@ -646,7 +672,7 @@ window.__ModuleLoader__.load({
               gap: 6,
             },
           },
-          h('span', null, t('insertHint')),
+          h('span', null, rows.length > 1 ? t('insertHint') : t('insertHintOne')),
           h('span', { style: { flex: 1 } }),
           flash
             ? h(
