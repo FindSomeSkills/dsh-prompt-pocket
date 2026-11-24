@@ -171,6 +171,41 @@ async function mutate(body) {
   return { ok: false, code: 'unknown-op' };
 }
 
+// Merge an exported file into the local store. Same id + newer usedAt wins;
+// everything else is kept, so an import never deletes a local prompt.
+async function importEntries(rawEntries) {
+  const store = await readStore();
+  const byId = new Map(store.entries.map((e) => [e.id, e]));
+  const incoming = normalize({ entries: Array.isArray(rawEntries) ? rawEntries : [] }).entries;
+  let added = 0;
+  let updated = 0;
+  let skipped = 0;
+  for (const entry of incoming) {
+    const current = byId.get(entry.id);
+    if (!current) {
+      byId.set(entry.id, entry);
+      added += 1;
+    } else if ((entry.usedAt || 0) > (current.usedAt || 0)) {
+      byId.set(entry.id, entry);
+      updated += 1;
+    } else {
+      skipped += 1;
+    }
+  }
+  const entries = evict([...byId.values()]);
+  await writeStore({ version: 1, entries });
+  return {
+    ok: true,
+    merge: {
+      received: Array.isArray(rawEntries) ? rawEntries.length : 0,
+      added,
+      updated,
+      skipped,
+      invalid: (Array.isArray(rawEntries) ? rawEntries.length : 0) - incoming.length,
+    },
+  };
+}
+
 // The client action row only receives a message id; the text lives in the session log.
 function replyText(sessions, sessionId, messageId) {
   if (!sessions || !sessionId || !messageId) return null;
@@ -312,6 +347,25 @@ export function apply(ctx) {
       if (url.pathname === '/dsh-prompt-stash/state') {
         if (req.method !== 'GET') return sendNode(res, 405, { error: 'method not allowed' });
         return sendNode(res, 200, await snapshot(url.searchParams.get('workspace') || undefined));
+      }
+
+      if (url.pathname === '/dsh-prompt-stash/export') {
+        if (req.method !== 'GET') return sendNode(res, 405, { error: 'method not allowed' });
+        const store = await readStore();
+        return sendNode(res, 200, { version: 1, exportedAt: new Date().toISOString(), entries: store.entries });
+      }
+
+      if (url.pathname === '/dsh-prompt-stash/import') {
+        if (req.method !== 'POST') return sendNode(res, 405, { error: 'method not allowed' });
+        let body;
+        try {
+          body = JSON.parse(await readBody(req));
+        } catch {
+          return sendNode(res, 400, { error: 'malformed body' });
+        }
+        if (!Array.isArray(body && body.entries)) return sendNode(res, 400, { error: 'entries required' });
+        const result = await importEntries(body.entries);
+        return sendNode(res, 200, { ...result, ...(await snapshot(body.workspaceId)) });
       }
 
       if (url.pathname === '/dsh-prompt-stash/mutate') {

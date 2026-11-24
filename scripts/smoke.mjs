@@ -275,6 +275,44 @@ const pass = (n) => ok.push(n);
   pass('有模型时把流式结果拼成润色文本');
 }
 
+// 18. export returns every entry
+{
+  await post('/mutate', { op: 'save', text: 'exported prompt', scope: 'global' });
+  const r = await call('/dsh-prompt-stash/export');
+  assert.equal(r.status, 200);
+  assert.ok(Array.isArray(r.json.entries) && r.json.entries.length >= 1);
+  assert.equal(typeof r.json.exportedAt, 'string');
+  pass('导出的文件带上全部条目和时间');
+}
+
+// 19. import merges by id: one new, one newer version, one invalid
+{
+  const before = await call('/dsh-prompt-stash/state');
+  const local = before.json.entries[0];
+  const r = await post('/dsh-prompt-stash/import', {
+    entries: [
+      { ...local, text: 'updated by import', usedAt: local.usedAt + 10000 },
+      { id: 'imported-1', text: 'a prompt from another machine', scope: 'global', usedAt: Date.now() },
+      { text: '' },
+    ],
+  });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.merge.added, 1);
+  assert.equal(r.json.merge.updated, 1);
+  assert.equal(r.json.merge.invalid, 1);
+  const after = await call('/dsh-prompt-stash/state');
+  assert.ok(after.json.entries.some((e) => e.text === 'updated by import'));
+  assert.ok(after.json.entries.some((e) => e.id === 'imported-1'));
+  pass('导入按 id 合并：新增、更新、无效各计一次');
+}
+
+// 20. import without an entries array is refused
+{
+  const r = await post('/dsh-prompt-stash/import', { entries: 'nope' });
+  assert.equal(r.status, 400);
+  pass('导入缺数组时 400');
+}
+
 await fs.rm(tmp, { recursive: true, force: true });
 if (process.env.DSH_HOME === tmp) delete process.env.DSH_HOME;
 

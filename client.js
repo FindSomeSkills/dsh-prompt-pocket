@@ -42,6 +42,10 @@ window.__ModuleLoader__.load({
       polishNoModel: '没有可用的模型，去设置里选一个',
       polishSame: '原文已经是完整可执行的提示词，没有改',
       countTotal: '共 {n} 条',
+      exportAll: '导出',
+      importAll: '导入',
+      importDone: '已合并：新增 {a}，更新 {u}',
+      importFail: '导入失败，文件格式不对',
       polishOriginal: '原文',
       polishResult: 'DSH 提示词',
       accept: '用这版',
@@ -80,6 +84,10 @@ window.__ModuleLoader__.load({
       polishNoModel: 'No model is available; pick one in settings',
       polishSame: 'The input is already an executable prompt; nothing changed',
       countTotal: '{n} in total',
+      exportAll: 'Export',
+      importAll: 'Import',
+      importDone: 'Merged: {a} new, {u} updated',
+      importFail: 'Import failed: not a pocket file',
       polishOriginal: 'Original',
       polishResult: 'DSH prompt',
       accept: 'Use this',
@@ -204,6 +212,7 @@ window.__ModuleLoader__.load({
       const [active, setActive] = useState(0);
       const searchRef = useRef(null);
       const panelRef = useRef(null);
+      const fileRef = useRef(null);
       const [lastId, setLastId] = useState(null);
       const spanRef = useRef(null);
       const dragRef = useRef(null);
@@ -323,6 +332,42 @@ window.__ModuleLoader__.load({
           if (r.ok && r.json) setData(r.json);
         },
         [workspaceId]
+      );
+
+      const doExport = useCallback(async () => {
+        const r = await fetch('/dsh-prompt-stash/export');
+        if (!r.ok) return;
+        const blob = await r.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `dsh-prompt-pocket-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      }, []);
+
+      const doImport = useCallback(
+        async (file) => {
+          try {
+            const parsed = JSON.parse(await file.text());
+            const entries = Array.isArray(parsed) ? parsed : parsed.entries;
+            if (!Array.isArray(entries)) throw new Error('entries');
+            const r = await fetch('/dsh-prompt-stash/import', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ entries, workspaceId }),
+            });
+            const json = await r.json();
+            if (!r.ok) throw new Error(json && json.error);
+            if (json.entries) setData(json);
+            setFlash({
+              text: t('importDone').replace('{a}', String(json.merge ? json.merge.added : 0)).replace('{u}', String(json.merge ? json.merge.updated : 0)),
+              until: Date.now() + 6000,
+            });
+          } catch {
+            setFlash({ text: t('importFail'), until: Date.now() + 5000 });
+          }
+        },
+        [workspaceId, t]
       );
 
       const remove = useCallback(
@@ -835,6 +880,39 @@ window.__ModuleLoader__.load({
                   )
                 )
               )
+        ),
+        h(
+          'div',
+          { style: { display: 'flex', gap: 12, padding: '2px 10px 6px', fontSize: 11 } },
+          h(
+            'button',
+            {
+              type: 'button',
+              onClick: doExport,
+              style: { background: 'transparent', border: 'none', padding: 0, color: 'var(--dsw-alias-brand-primary, #4aa3ff)', cursor: 'pointer', font: 'inherit' },
+            },
+            t('exportAll')
+          ),
+          h(
+            'button',
+            {
+              type: 'button',
+              onClick: () => fileRef.current && fileRef.current.click(),
+              style: { background: 'transparent', border: 'none', padding: 0, color: 'var(--dsw-alias-brand-primary, #4aa3ff)', cursor: 'pointer', font: 'inherit' },
+            },
+            t('importAll')
+          ),
+          h('input', {
+            ref: fileRef,
+            type: 'file',
+            accept: '.json,application/json',
+            style: { display: 'none' },
+            onChange: (ev) => {
+              const file = ev.target.files && ev.target.files[0];
+              if (file) doImport(file);
+              ev.target.value = '';
+            },
+          })
         ),
         h(
           'div',
