@@ -33,7 +33,7 @@ function normalize(raw) {
       text: String(e.text).slice(0, 20000),
       title: typeof e.title === 'string' && e.title ? e.title.slice(0, 60) : clipTitle(e.text),
       scope: e.scope === 'workspace' ? 'workspace' : 'global',
-      workspaceId: typeof e.workspaceId === 'string' ? e.workspaceId : undefined,
+      ...(typeof e.workspaceId === 'string' && e.workspaceId ? { workspaceId: e.workspaceId } : {}),
       source: ['draft', 'selection', 'reply', 'manual'].includes(e.source) ? e.source : 'manual',
       createdAt: typeof e.createdAt === 'number' ? e.createdAt : Date.now(),
       usedAt: typeof e.usedAt === 'number' ? e.usedAt : typeof e.createdAt === 'number' ? e.createdAt : Date.now(),
@@ -154,7 +154,7 @@ async function mutate(body) {
     entries[i] = {
       ...entries[i],
       scope,
-      ...(scope === 'workspace' ? { workspaceId } : { workspaceId: undefined }),
+      ...(scope === 'workspace' ? { workspaceId } : {}),
     };
     await writeStore({ version: 1, entries });
     return { ok: true, entry: entries[i] };
