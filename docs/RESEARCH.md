@@ -143,3 +143,14 @@
 | 插入后继续打字 | 焦点是否丢、光标是否回到原位 |
 
 目标：存 ≤ 1 键 0 次点击；取 ≤ 3 键；插入后焦点回输入框。
+
+## 九、实现状态（2026-11-25 02:55）
+
+0.1.0 已写完并推到 [FindSomeSkills/dsh-prompt-stash](https://github.com/FindSomeSkills/dsh-prompt-stash)。
+
+- 宿主：单文件存储、原子写、500 条上限 + 最久未用淘汰、`save/update/move/remove/touch`、`/message` 读回复正文、`prompt_stash` 工具
+- 客户端：输入框浮层里的可拖动圆点 + 面板（搜索、两档、插入、删除、改存通用）、回复动作行的 ⤓、`Ctrl+Shift+S` / `Ctrl+Shift+P`
+- 插入走 `captureInsertion` + `insertText`，失败退回 `setDraft`，然后 `focus()`
+- 测试：宿主 14 项、客户端 6 项、文档 6 项、打包 1 项全过
+
+**没做**：真机安装与截图。装进 profile 要重启宿主，按用户级规则第 0 条不在会话内做。截图等装好后补，补完 `docs-check` 会开始检查「截图紧跟标题」这一条。
