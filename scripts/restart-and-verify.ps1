@@ -70,7 +70,15 @@ $state = Check 'GET /state answers 200 with cap 500' {
   $j
 }
 
-$saved = Check 'POST /mutate save writes one entry' {
+$saved = Check 'GET /export answers with the entries array' {
+  $r = Invoke-WebRequest -Uri "$base/export" -UseBasicParsing -TimeoutSec 10
+  $j = $r.Content | ConvertFrom-Json
+  if ($null -eq $j.entries) { throw 'no entries field' }
+  Say "export: $($j.entries.Count) entries"
+  $true
+} | Out-Null
+
+Check 'POST /mutate save writes one entry' {
   $body = @{ op = 'save'; text = 'restart self-check entry'; scope = 'global'; source = 'manual' } | ConvertTo-Json -Compress
   $r = Invoke-WebRequest -Uri "$base/mutate" -Method Post -ContentType 'application/json' -Body $body -UseBasicParsing -TimeoutSec 10
   if ($r.StatusCode -ne 200) { throw "status $($r.StatusCode)" }
@@ -116,6 +124,20 @@ Check 'installed copy matches the repository version' {
 } | Out-Null
 
 Say ("done: failures={0}" -f $failures)
+
+# 兜底清理：自检用的那条如果没被删掉，这里按文本再删一次
+try {
+  $all = (Invoke-WebRequest -Uri "$base/export" -UseBasicParsing -TimeoutSec 10).Content | ConvertFrom-Json
+  foreach ($e in @($all.entries)) {
+    if ($e.text -eq 'restart self-check entry') {
+      $body = @{ op = 'remove'; id = $e.id } | ConvertTo-Json -Compress
+      Invoke-WebRequest -Uri "$base/mutate" -Method Post -ContentType 'application/json' -Body $body -UseBasicParsing -TimeoutSec 10 | Out-Null
+      Say "cleaned self-check entry $($e.id)"
+    }
+  }
+} catch {
+  Say "self-check cleanup skipped: $($_.Exception.Message)"
+}
 
 if ($failures -gt 0) {
   Say "RESULT: $failures check(s) failed. Log: $logPath"
