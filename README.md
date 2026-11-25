@@ -104,6 +104,26 @@ dsh plugin --profile web add .
 
 `$DSH_HOME/dsh-prompt-stash/store.d/`, one JSON file per prompt, plus tombstones for deletions. Every profile and every browser pointed at this host reads the same directory. Writes go through a temporary file and a rename; a damaged entry is renamed to `.corrupt-<timestamp>.bak` and skipped instead of blocking the panel.
 
+## Upgrading does not happen by itself
+
+**There is no auto-update.** The install writes an exact version into the profile and DSH has no updater daemon: nothing changes until you run a command. That is deliberate — the plugin runs inside the host process, and swapping its files under a live process leaves half the routes on the old code.
+
+**A pinned version is why an upgrade needs the number.** `dsh plugin add` without `@x.y.z` can resolve to a cached older release because of pnpm’s `minimumReleaseAge` policy.
+
+Paste this into DSH to upgrade:
+
+```
+Upgrade the DSH plugin dsh-prompt-pocket:
+1. Read the current version: cat ~/.dsh/profiles/web/node_modules/dsh-prompt-pocket/package.json | grep '"version"'
+2. Read the latest version: npm view dsh-prompt-pocket version
+3. If they are equal, say "already current" and change nothing.
+4. Otherwise run dsh plugin --profile web add dsh-prompt-pocket@<latest> (pin the version).
+5. Read the version on disk again and confirm it changed.
+6. Restart the host: on Windows stop DSH021-Web and start it again; on macOS run launchctl kickstart -k gui/$(id -u)/com.deepseek.dsh.web
+7. Open http://127.0.0.1:2081, force-reload, and confirm the panel footer shows the sync state.
+Needs registry.npmjs.org. If anything fails, stop and show me the exact error.
+```
+
 ## Requirements
 
 DeepSeek Harness `>= 0.2.0-rc.1` and a Web profile — the pocket renders inside the composer. Windows, macOS and Linux run the same code; the interface language follows the DSH setting. The desktop client is untested.

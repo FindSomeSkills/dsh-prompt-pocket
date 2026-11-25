@@ -103,6 +103,26 @@ dsh plugin --profile web add .
 
 `$DSH_HOME/dsh-prompt-stash/store.d/`，一条提示词一个 JSON 文件，删除留墓碑。所有 profile、所有连到这台机器的浏览器读同一个目录。写入走临时文件 + rename；某一条坏了会改名成 `.corrupt-<时间戳>.bak` 并跳过，不会挡住面板。
 
+## 升级不会自动发生
+
+**没有自动升级。** 安装时把精确版本写进了 profile，DSH 也没有更新守护进程：你不敲命令，版本就不会变。这是有意的——插件跑在宿主进程里，运行中换文件会让一半路由停在旧代码上。
+
+**写死版本也是升级要带版本号的原因。** 不带 `@x.y.z` 执行 `dsh plugin add`，pnpm 的 `minimumReleaseAge` 策略可能解析成缓存里的旧版本。
+
+把这段发给 DSH 就能升级：
+
+```
+帮我升级 DSH 插件 dsh-prompt-pocket：
+1. 读当前版本：cat ~/.dsh/profiles/web/node_modules/dsh-prompt-pocket/package.json | grep '"version"'
+2. 查最新版本：npm view dsh-prompt-pocket version
+3. 两者相同就告诉我「已是最新」，不要动任何文件；
+4. 不同则执行 dsh plugin --profile web add dsh-prompt-pocket@<最新版本>（版本写死）；
+5. 再读一次磁盘版本，确认已变；
+6. 重启宿主：Windows 停掉 DSH021-Web 再启动；macOS 执行 launchctl kickstart -k gui/$(id -u)/com.deepseek.dsh.web
+7. 打开 http://127.0.0.1:2081 强刷页面，确认面板底部能同步。
+需要能访问 registry.npmjs.org；失败就停下把原文给我。
+```
+
 ## 运行要求
 
 DeepSeek Harness `>= 0.2.0-rc.1`，Web profile——口袋渲染在输入框里。Windows、macOS、Linux 跑同一份代码；界面语言跟随 DSH 的设置。桌面客户端没验证过。
