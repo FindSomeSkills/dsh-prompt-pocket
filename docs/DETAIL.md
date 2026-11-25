@@ -57,4 +57,12 @@ The agent can read and write the same pocket through the `prompt_stash` tool, so
 
 ## What it does not do
 
-**No tags, no folders, no import wizard, no recycle bin.** Each of those needs a panel, and a panel needs a decision every time you save. This one is built so there is nothing to decide.
+**No tags, no folders, no import wizard, no recycle bin.** Each of those needs a panel, and a panel needs a decision every time you save. This one is built so there is nothing to decide.## Moving prompts between machines
+
+Two ways, one file format.
+
+**Through a private git repository.** Set the remote in the panel; the host initialises the repository inside `$DSH_HOME/dsh-prompt-stash`, commits after each change and pushes, then merges the remote branch on launch. Prompts are stored as **one file per entry**, so a merge keeps both sides rather than corrupting a single JSON document. Identity is the repository credential — the plugin never stores a token, and it asks GitHub whether the repository is public before enabling sync, refusing if it is.
+
+**By hand.** Export writes one JSON file with every entry; import reads it and merges by id — a newer `updatedAt` replaces the local copy, an older one is skipped, invalid entries are counted and ignored, and neither path deletes a local prompt.
+
+

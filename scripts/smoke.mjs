@@ -4,6 +4,7 @@ import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 
 const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'prompt-stash-'));
 process.env.DSH_HOME = tmp;
@@ -207,16 +208,19 @@ const pass = (n) => ok.push(n);
   pass('超过 500 条按最久未用淘汰，新条留下');
 }
 
-// 13. a corrupt file is renamed and the store starts clean
+// 13. one corrupt entry file is quarantined, the rest of the pocket survives
 {
-  const file = path.join(tmp, 'dsh-prompt-stash', 'store.json');
-  await fs.writeFile(file, '{ this is not json', 'utf8');
+  const dir = path.join(tmp, 'dsh-prompt-stash', 'store.d');
+  const files = (await fs.readdir(dir)).filter((f) => f.endsWith('.json'));
+  assert.ok(files.length > 0, '应当已经有条目文件');
+  const before = (await call('/dsh-prompt-stash/state')).json.total;
+  await fs.writeFile(path.join(dir, files[0]), '{ this is not json', 'utf8');
   const r = await call('/dsh-prompt-stash/state');
   assert.equal(r.status, 200);
-  assert.deepEqual(r.json.entries, []);
-  const files = await fs.readdir(path.dirname(file));
-  assert.ok(files.some((f) => f.includes('.corrupt-')), '坏文件要留底');
-  pass('坏文件留底后从空库继续');
+  const after = await fs.readdir(dir);
+  assert.ok(after.some((f) => f.includes('.corrupt-')), '坏文件要留底');
+  assert.equal(r.json.total, before - 1, '只损失坏掉的那一条，其余照常');
+  pass('单条坏文件留底，其余条目照常读取');
 }
 
 // 14. the tool reads and writes the same file the routes serve
@@ -311,6 +315,38 @@ const pass = (n) => ok.push(n);
   const r = await post('/dsh-prompt-stash/import', { entries: 'nope' });
   assert.equal(r.status, 400);
   pass('导入缺数组时 400');
+}
+
+// 21. git sync: first push creates the branch on the remote
+{
+  const remote = path.join(tmp, 'remote.git');
+  execFileSync('git', ['init', '--bare', remote], { stdio: 'ignore' });
+  const r = await post('/dsh-prompt-stash/sync', { enabled: true, remote, branch: 'main' });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.result.ok, true, '首次同步应当成功');
+  const files = execFileSync('git', ['--git-dir', remote, 'ls-tree', '-r', '--name-only', 'main'], { encoding: 'utf8' });
+  assert.ok(files.includes('store.d/'), '远端应当有 store.d');
+  assert.ok(files.split('\n').filter((f) => f.startsWith('store.d/')).length >= 1, '远端应当有至少一个条目文件');
+  pass('git 同步：首次推送把条目推到远端分支');
+}
+
+// 22. git sync: a change made on the remote is merged into the local pocket
+{
+  const remote = path.join(tmp, 'remote.git');
+  const clone = path.join(tmp, 'clone');
+  execFileSync('git', ['clone', '-b', 'main', remote, clone], { stdio: 'ignore' });
+  execFileSync('git', ['-C', clone, 'config', 'user.name', 'test'], { stdio: 'ignore' });
+  execFileSync('git', ['-C', clone, 'config', 'user.email', 'test@local'], { stdio: 'ignore' });
+  const entry = { id: 'from-mac', text: 'a prompt saved on the other machine', title: 'from mac', scope: 'global', source: 'manual', createdAt: Date.now(), usedAt: Date.now(), updatedAt: Date.now(), useCount: 0 };
+  await fs.writeFile(path.join(clone, 'store.d', 'from-mac.json'), JSON.stringify(entry), 'utf8');
+  execFileSync('git', ['-C', clone, 'add', '-A'], { stdio: 'ignore' });
+  execFileSync('git', ['-C', clone, 'commit', '-m', 'from mac'], { stdio: 'ignore' });
+  execFileSync('git', ['-C', clone, 'push', 'origin', 'main'], { stdio: 'ignore' });
+
+  const r = await post('/dsh-prompt-stash/sync/now', {});
+  assert.equal(r.status, 200);
+  assert.ok(r.json.entries.some((e) => e.id === 'from-mac'), '另一台机器的条目应当合并进来');
+  pass('git 同步：远端新增的条目合并到本地');
 }
 
 await fs.rm(tmp, { recursive: true, force: true });

@@ -46,6 +46,12 @@ window.__ModuleLoader__.load({
       importAll: '导入',
       importDone: '已合并：新增 {a}，更新 {u}',
       importFail: '导入失败，文件格式不对',
+      syncOff: '同步未开启',
+      syncOn: '同步',
+      syncBusy: '同步中…',
+      syncFail: '同步失败',
+      syncHint: '私有仓库地址（留空关闭同步）',
+      syncDone: '同步完成',
       polishOriginal: '原文',
       polishResult: 'DSH 提示词',
       accept: '用这版',
@@ -88,6 +94,12 @@ window.__ModuleLoader__.load({
       importAll: 'Import',
       importDone: 'Merged: {a} new, {u} updated',
       importFail: 'Import failed: not a pocket file',
+      syncOff: 'Sync off',
+      syncOn: 'Sync',
+      syncBusy: 'Syncing…',
+      syncFail: 'Sync failed',
+      syncHint: 'Private repo URL (leave empty to turn sync off)',
+      syncDone: 'Synced',
       polishOriginal: 'Original',
       polishResult: 'DSH prompt',
       accept: 'Use this',
@@ -213,6 +225,8 @@ window.__ModuleLoader__.load({
       const searchRef = useRef(null);
       const panelRef = useRef(null);
       const fileRef = useRef(null);
+      const [sync, setSync] = useState(null);
+      const [syncing, setSyncing] = useState(false);
       const [lastId, setLastId] = useState(null);
       const spanRef = useRef(null);
       const dragRef = useRef(null);
@@ -227,6 +241,8 @@ window.__ModuleLoader__.load({
       const load = useCallback(async () => {
         const r = await api('/state' + (workspaceId ? '?workspace=' + encodeURIComponent(workspaceId) : ''));
         if (r.ok && r.json) setData(r.json);
+        const s = await api('/sync');
+        if (s.ok && s.json) setSync(s.json);
       }, [workspaceId]);
 
       useEffect(() => {
@@ -369,6 +385,33 @@ window.__ModuleLoader__.load({
         },
         [workspaceId, t]
       );
+
+      const runSync = useCallback(async (payload) => {
+        setSyncing(true);
+        try {
+          const r = await api(payload ? '/sync' : '/sync/now', payload ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) } : { method: 'POST' });
+          if (r.ok && r.json) {
+            setSync(r.json);
+            if (r.json.entries) setData(r.json);
+            setFlash({ text: r.json.result && r.json.result.ok ? t('syncDone') : t('syncFail'), until: Date.now() + 5000 });
+          } else {
+            setFlash({ text: t('syncFail'), until: Date.now() + 5000 });
+          }
+        } finally {
+          setSyncing(false);
+        }
+      }, [t]);
+
+      const onSyncClick = useCallback(() => {
+        if (syncing) return;
+        if (sync && sync.enabled) {
+          runSync(null);
+          return;
+        }
+        const remote = window.prompt(t('syncHint'), (sync && sync.remote) || '');
+        if (remote === null) return;
+        runSync({ enabled: remote.trim().length > 0, remote: remote.trim(), branch: (sync && sync.branch) || 'main' });
+      }, [sync, syncing, runSync, t]);
 
       const remove = useCallback(
         async (id) => {
@@ -912,7 +955,25 @@ window.__ModuleLoader__.load({
               if (file) doImport(file);
               ev.target.value = '';
             },
-          })
+          }),
+          h(
+            'button',
+            {
+              type: 'button',
+              onClick: onSyncClick,
+              title: sync && sync.lastError ? sync.lastError : '',
+              style: {
+                background: 'transparent',
+                border: 'none',
+                padding: 0,
+                color: sync && sync.enabled ? 'var(--dsw-alias-brand-primary, #4aa3ff)' : 'var(--dsw-alias-label-secondary, #888)',
+                cursor: 'pointer',
+                font: 'inherit',
+                marginLeft: 'auto',
+              },
+            },
+            syncing ? t('syncBusy') : sync && sync.enabled ? `${t('syncOn')}${sync.lastSyncAt ? ' · ' + new Date(sync.lastSyncAt).toLocaleTimeString() : ''}` : t('syncOff')
+          )
         ),
         h(
           'div',

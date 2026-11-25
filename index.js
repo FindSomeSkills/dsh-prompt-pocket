@@ -6,11 +6,17 @@
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
+import { promises as fsp } from 'node:fs';
 
 const CAP = 500;
 const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh');
 const DIR = path.join(HOME, 'dsh-prompt-stash');
-const FILE = path.join(DIR, 'store.json');
+const STORE = path.join(DIR, 'store.d');
+const LEGACY = path.join(DIR, 'store.json');
+const SYNC = path.join(DIR, 'sync.json');
+const TOMB_DAYS = 90;
+const FILE = LEGACY;
 
 function newId() {
   return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -21,48 +27,119 @@ function clipTitle(text) {
   return first.replace(/\s+/g, ' ').trim().slice(0, 40);
 }
 
-const empty = () => ({ version: 1, entries: [] });
+const empty = () => ({ version: 1, entries: [], tombstones: [] });
+
+function normalizeEntry(raw, fallbackId) {
+  const text = String(raw.text).slice(0, 20000);
+  const createdAt = typeof raw.createdAt === 'number' ? raw.createdAt : Date.now();
+  const usedAt = typeof raw.usedAt === 'number' ? raw.usedAt : createdAt;
+  const updatedAt = typeof raw.updatedAt === 'number' ? raw.updatedAt : usedAt;
+  return {
+    id: typeof raw.id === 'string' && raw.id ? raw.id : fallbackId || newId(),
+    text,
+    title: typeof raw.title === 'string' && raw.title ? raw.title.slice(0, 60) : clipTitle(text),
+    scope: raw.scope === 'workspace' ? 'workspace' : 'global',
+    ...(typeof raw.workspaceId === 'string' && raw.workspaceId ? { workspaceId: raw.workspaceId } : {}),
+    source: ['draft', 'selection', 'reply', 'manual'].includes(raw.source) ? raw.source : 'manual',
+    createdAt,
+    usedAt,
+    updatedAt,
+    useCount: typeof raw.useCount === 'number' ? raw.useCount : 0,
+    ...(typeof raw.prior === 'string' && raw.prior.trim() ? { prior: raw.prior.slice(0, 20000) } : {}),
+  };
+}
 
 function normalize(raw) {
   if (!raw || typeof raw !== 'object') return empty();
   const list = Array.isArray(raw.entries) ? raw.entries : [];
   const entries = list
     .filter((e) => e && typeof e.text === 'string' && e.text.trim())
-    .map((e) => ({
-      id: typeof e.id === 'string' && e.id ? e.id : newId(),
-      text: String(e.text).slice(0, 20000),
-      title: typeof e.title === 'string' && e.title ? e.title.slice(0, 60) : clipTitle(e.text),
-      scope: e.scope === 'workspace' ? 'workspace' : 'global',
-      ...(typeof e.workspaceId === 'string' && e.workspaceId ? { workspaceId: e.workspaceId } : {}),
-      source: ['draft', 'selection', 'reply', 'manual'].includes(e.source) ? e.source : 'manual',
-      createdAt: typeof e.createdAt === 'number' ? e.createdAt : Date.now(),
-      usedAt: typeof e.usedAt === 'number' ? e.usedAt : typeof e.createdAt === 'number' ? e.createdAt : Date.now(),
-      useCount: typeof e.useCount === 'number' ? e.useCount : 0,
-      ...(typeof e.prior === 'string' && e.prior.trim() ? { prior: e.prior.slice(0, 20000) } : {}),
-    }))
+    .map((e) => normalizeEntry(e))
     .slice(-CAP);
-  return { version: 1, entries };
+  return { version: 1, entries, tombstones: [] };
 }
 
-async function readStore() {
-  try {
-    return normalize(JSON.parse(await fs.readFile(FILE, 'utf8')));
-  } catch (e) {
-    if (e && e.code === 'ENOENT') return empty();
+function normalizeTombstone(raw) {
+  if (!raw || typeof raw.id !== 'string' || !raw.id) return null;
+  if (typeof raw.deletedAt !== 'number') return null;
+  return { id: raw.id, deletedAt: raw.deletedAt };
+}
+
+// One file per prompt: a git merge can then keep both sides instead of fighting
+// over one JSON document. Tombstones live in the same directory and win when
+// they are newer than the entry they delete.
+async function readEntryFiles() {
+  const entries = [];
+  const tombstones = [];
+  const names = (await fs.readdir(STORE)).filter((n) => n.endsWith('.json'));
+  for (const name of names) {
+    let raw;
     try {
-      await fs.rename(FILE, FILE + '.corrupt-' + Date.now() + '.bak');
+      raw = JSON.parse(await fs.readFile(path.join(STORE, name), 'utf8'));
     } catch {
-      /* nothing else to do */
+      await fs.rename(path.join(STORE, name), path.join(STORE, `${name}.corrupt-${Date.now()}.bak`)).catch(() => {});
+      continue;
     }
-    return empty();
+    if (typeof raw.deletedAt === 'number') {
+      const tomb = normalizeTombstone(raw);
+      if (tomb) tombstones.push(tomb);
+      continue;
+    }
+    if (typeof raw.text === 'string' && raw.text.trim()) entries.push(normalizeEntry(raw, name.slice(0, -5)));
+  }
+  return { entries, tombstones };
+}
+
+async function migrateLegacy() {
+  try {
+    const raw = JSON.parse(await fs.readFile(LEGACY, 'utf8'));
+    const legacy = normalize(raw);
+    if (!legacy.entries.length) return 0;
+    await writeStore(legacy);
+    await fs.rename(LEGACY, `${LEGACY}.migrated-${Date.now()}`);
+    return legacy.entries.length;
+  } catch {
+    return 0;
   }
 }
 
+async function readStore() {
+  await fs.mkdir(STORE, { recursive: true });
+  const names = (await fs.readdir(STORE)).filter((n) => n.endsWith('.json'));
+  if (!names.length) await migrateLegacy();
+  const { entries, tombstones } = await readEntryFiles();
+  const cutoff = Date.now() - TOMB_DAYS * 24 * 60 * 60 * 1000;
+  return { version: 1, entries, tombstones: tombstones.filter((t) => t.deletedAt >= cutoff) };
+}
+
+async function writeFileAtomic(file, body) {
+  const tmp = `${file}.${process.pid}.tmp`;
+  await fs.writeFile(tmp, body, 'utf8');
+  await fs.rename(tmp, file);
+}
+
+async function writeEntryFile(entry) {
+  await writeFileAtomic(path.join(STORE, `${entry.id}.json`), JSON.stringify(entry));
+}
+
+async function writeTombstoneFile(tomb) {
+  await writeFileAtomic(path.join(STORE, `${tomb.id}.json`), JSON.stringify(tomb));
+}
+
 async function writeStore(store) {
-  await fs.mkdir(DIR, { recursive: true });
-  const tmp = FILE + '.' + process.pid + '.tmp';
-  await fs.writeFile(tmp, JSON.stringify(store, null, 2), 'utf8');
-  await fs.rename(tmp, FILE);
+  await fs.mkdir(STORE, { recursive: true });
+  const entries = store.entries || [];
+  const tombstones = store.tombstones || [];
+  const keep = new Set(entries.map((e) => e.id));
+  const buried = new Set(tombstones.map((t) => t.id));
+  for (const entry of entries) await writeEntryFile(entry);
+  for (const tomb of tombstones) await writeTombstoneFile(tomb);
+  for (const name of await fs.readdir(STORE)) {
+    if (!name.endsWith('.json')) continue;
+    const id = name.slice(0, -5);
+    if (keep.has(id) || buried.has(id)) continue;
+    await fs.unlink(path.join(STORE, name)).catch(() => {});
+  }
 }
 
 // Least-recently-used first: the entry evicted is the one untouched the longest.
@@ -118,7 +195,12 @@ async function mutate(body) {
     };
     entries.push(entry);
     const next = evict(entries);
-    await writeStore({ version: 1, entries: next });
+    await writeEntryFile(entry);
+    for (const dropped of entries) {
+      if (!next.some((e) => e.id === dropped.id)) {
+        await fs.unlink(path.join(STORE, `${dropped.id}.json`)).catch(() => {});
+      }
+    }
     return { ok: true, entry };
   }
 
@@ -133,7 +215,7 @@ async function mutate(body) {
       title: (typeof body.title === 'string' && body.title.trim()) || clipTitle(text),
       ...(typeof body.prior === 'string' && body.prior.trim() ? { prior: body.prior.slice(0, 20000) } : {}),
     };
-    await writeStore({ version: 1, entries });
+    await writeEntryFile(entries[i]);
     return { ok: true, entry: entries[i] };
   }
 
@@ -141,7 +223,8 @@ async function mutate(body) {
     const i = at(body.id);
     if (i < 0) return { ok: false, code: 'not-found' };
     entries.splice(i, 1);
-    await writeStore({ version: 1, entries });
+    await writeTombstoneFile({ id: body.id, deletedAt: Date.now() });
+    await fs.unlink(path.join(STORE, `${body.id}.json`)).catch(() => {});
     return { ok: true };
   }
 
@@ -155,20 +238,194 @@ async function mutate(body) {
       ...entries[i],
       scope,
       ...(scope === 'workspace' ? { workspaceId } : {}),
+      updatedAt: Date.now(),
     };
-    await writeStore({ version: 1, entries });
+    await writeEntryFile(entries[i]);
     return { ok: true, entry: entries[i] };
   }
 
   if (op === 'touch') {
     const i = at(body.id);
     if (i < 0) return { ok: false, code: 'not-found' };
-    entries[i] = { ...entries[i], usedAt: Date.now(), useCount: (entries[i].useCount || 0) + 1 };
-    await writeStore({ version: 1, entries });
+    entries[i] = { ...entries[i], usedAt: Date.now(), updatedAt: Date.now(), useCount: (entries[i].useCount || 0) + 1 };
+    await writeEntryFile(entries[i]);
     return { ok: true };
   }
 
   return { ok: false, code: 'unknown-op' };
+}
+
+// ---------- git sync ----------
+// The transport is a private git repository the user owns. Identity is the
+// repository credential; the plugin never stores a token. Prompts are one file
+// each, so a merge keeps both sides instead of fighting over one document.
+
+function git(args) {
+  return new Promise((resolve) => {
+    const child = spawn('git', ['-C', DIR, ...args], { windowsHide: true });
+    let out = '';
+    let err = '';
+    const timer = setTimeout(() => child.kill(), 20000);
+    child.stdout.on('data', (c) => (out += c));
+    child.stderr.on('data', (c) => (err += c));
+    child.on('error', () => {
+      clearTimeout(timer);
+      resolve({ ok: false, code: -1, stdout: '', stderr: 'git not available' });
+    });
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      resolve({ ok: code === 0, code, stdout: out.trim(), stderr: err.trim() });
+    });
+  });
+}
+
+async function readSyncConfig() {
+  try {
+    const raw = JSON.parse(await fsp.readFile(SYNC, 'utf8'));
+    return {
+      enabled: raw.enabled === true,
+      remote: typeof raw.remote === 'string' ? raw.remote : '',
+      branch: typeof raw.branch === 'string' && raw.branch ? raw.branch : 'main',
+      syncId: typeof raw.syncId === 'string' ? raw.syncId : '',
+      lastSyncAt: typeof raw.lastSyncAt === 'number' ? raw.lastSyncAt : 0,
+      lastError: typeof raw.lastError === 'string' ? raw.lastError : '',
+    };
+  } catch {
+    return { enabled: false, remote: '', branch: 'main', syncId: '', lastSyncAt: 0, lastError: '' };
+  }
+}
+
+async function writeSyncConfig(cfg) {
+  await fs.mkdir(DIR, { recursive: true });
+  await writeFileAtomic(SYNC, JSON.stringify(cfg, null, 2));
+}
+
+async function ensureRepo(cfg) {
+  await fs.mkdir(DIR, { recursive: true });
+  if (!(await fsp.stat(path.join(DIR, '.git')).catch(() => null))) await git(['init']);
+  const remote = await git(['remote', 'get-url', 'origin']);
+  if (!remote.ok) await git(['remote', 'add', 'origin', cfg.remote]);
+  else if (remote.stdout !== cfg.remote) await git(['remote', 'set-url', 'origin', cfg.remote]);
+  const name = await git(['config', 'user.name']);
+  if (!name.ok || !name.stdout) await git(['config', 'user.name', 'dsh-prompt-pocket']);
+  const mail = await git(['config', 'user.email']);
+  if (!mail.ok || !mail.stdout) await git(['config', 'user.email', 'pocket@localhost']);
+  const ignore = path.join(DIR, '.gitignore');
+  if (!(await fsp.stat(ignore).catch(() => null))) await fsp.writeFile(ignore, '*.tmp\n', 'utf8');
+}
+
+async function readRemoteEntries(cfg) {
+  const fetched = await git(['fetch', 'origin', cfg.branch]);
+  if (!fetched.ok) return null; // nothing on the remote yet
+  const tmp = path.join(os.tmpdir(), `pocket-sync-${process.pid}-${Date.now()}`);
+  const added = await git(['worktree', 'add', '--force', '--detach', tmp, `origin/${cfg.branch}`]);
+  if (!added.ok) return null;
+  try {
+    const dir = path.join(tmp, 'store.d');
+    const entries = [];
+    const tombstones = [];
+    for (const name of (await fsp.readdir(dir).catch(() => [])).filter((n) => n.endsWith('.json'))) {
+      try {
+        const raw = JSON.parse(await fsp.readFile(path.join(dir, name), 'utf8'));
+        if (typeof raw.deletedAt === 'number') tombstones.push(normalizeTombstone(raw));
+        else if (raw && typeof raw.text === 'string' && raw.text.trim()) entries.push(normalizeEntry(raw, name.slice(0, -5)));
+      } catch {
+        /* a bad remote file is skipped, not merged */
+      }
+    }
+    return { entries: entries.filter(Boolean), tombstones: tombstones.filter(Boolean) };
+  } finally {
+    await git(['worktree', 'remove', '--force', tmp]);
+  }
+}
+
+function mergeStores(local, remote) {
+  const byId = new Map(local.entries.map((e) => [e.id, e]));
+  const tombs = new Map();
+  for (const tomb of [...(local.tombstones || []), ...(remote.tombstones || [])]) {
+    const current = tombs.get(tomb.id);
+    if (!current || tomb.deletedAt > current.deletedAt) tombs.set(tomb.id, tomb);
+  }
+  let added = 0;
+  let updated = 0;
+  let skipped = 0;
+  let deleted = 0;
+  for (const incoming of remote.entries) {
+    const tomb = tombs.get(incoming.id);
+    if (tomb && tomb.deletedAt >= incoming.updatedAt) continue;
+    const current = byId.get(incoming.id);
+    if (!current) {
+      byId.set(incoming.id, incoming);
+      added += 1;
+    } else if (incoming.updatedAt > current.updatedAt) {
+      byId.set(incoming.id, incoming);
+      updated += 1;
+    } else {
+      skipped += 1;
+    }
+  }
+  for (const [id, tomb] of tombs) {
+    const current = byId.get(id);
+    if (current && tomb.deletedAt > current.updatedAt) {
+      byId.delete(id);
+      deleted += 1;
+    }
+  }
+  return { entries: [...byId.values()], tombstones: [...tombs.values()].filter(Boolean), added, updated, skipped, deleted };
+}
+
+// A public repository would publish every prompt. GitHub answers 404 to an
+// unauthenticated API call for a private repo, 200 for a public one.
+async function publicGitHubRepo(remote) {
+  const m = /github\.com[:/]([^/]+)\/([^/]+?)(?:\.git)?\/?$/.exec(remote || '');
+  if (!m) return false;
+  try {
+    const res = await fetch(`https://api.github.com/repos/${m[1]}/${m[2]}`, { headers: { 'user-agent': 'dsh-prompt-pocket' } });
+    return res.status === 200;
+  } catch {
+    return false;
+  }
+}
+
+async function syncNow(cfg) {
+  if (!cfg.enabled || !cfg.remote) return { ok: false, code: 'disabled' };
+  const hasGit = await git(['--version']);
+  if (!hasGit.ok) {
+    await writeSyncConfig({ ...cfg, lastError: 'git is not installed' });
+    return { ok: false, code: 'no-git' };
+  }
+  await ensureRepo(cfg);
+  const local = await readStore();
+  const remote = await readRemoteEntries(cfg);
+  const merged = remote ? mergeStores(local, remote) : { entries: local.entries, tombstones: local.tombstones, added: 0, updated: 0, skipped: 0, deleted: 0 };
+  await writeStore({ version: 1, entries: merged.entries, tombstones: merged.tombstones });
+  await git(['add', '-A']);
+  const status = await git(['status', '--porcelain']);
+  if (status.ok && status.stdout.trim()) await git(['commit', '-m', `pocket sync ${new Date().toISOString()}`]);
+  let pushed = await git(['push', 'origin', `HEAD:${cfg.branch}`]);
+  if (!pushed.ok) {
+    await git(['pull', '--rebase', 'origin', cfg.branch]);
+    pushed = await git(['push', 'origin', `HEAD:${cfg.branch}`]);
+  }
+  const next = {
+    ...cfg,
+    lastSyncAt: Date.now(),
+    lastError: pushed.ok ? '' : (pushed.stderr || 'push failed').slice(0, 300),
+  };
+  await writeSyncConfig(next);
+  return { ok: pushed.ok, code: pushed.ok ? 'ok' : 'push-failed', merge: merged };
+}
+
+let syncTimer = null;
+function scheduleSync() {
+  readSyncConfig().then((cfg) => {
+    if (!cfg.enabled || !cfg.remote) return;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => {
+      syncNow(cfg).catch(() => {});
+    }, 3000);
+    if (syncTimer.unref) syncTimer.unref();
+  });
 }
 
 // Merge an exported file into the local store. Same id + newer usedAt wins;
@@ -176,11 +433,17 @@ async function mutate(body) {
 async function importEntries(rawEntries) {
   const store = await readStore();
   const byId = new Map(store.entries.map((e) => [e.id, e]));
+  const tombById = new Map((store.tombstones || []).map((t) => [t.id, t]));
   const incoming = normalize({ entries: Array.isArray(rawEntries) ? rawEntries : [] }).entries;
   let added = 0;
   let updated = 0;
   let skipped = 0;
   for (const entry of incoming) {
+    const tomb = tombById.get(entry.id);
+    if (tomb && tomb.deletedAt >= (entry.updatedAt || entry.usedAt || 0)) {
+      skipped += 1;
+      continue;
+    }
     const current = byId.get(entry.id);
     if (!current) {
       byId.set(entry.id, entry);
@@ -193,7 +456,7 @@ async function importEntries(rawEntries) {
     }
   }
   const entries = evict([...byId.values()]);
-  await writeStore({ version: 1, entries });
+  await writeStore({ version: 1, entries, tombstones: [...tombById.values()] });
   return {
     ok: true,
     merge: {
@@ -349,6 +612,41 @@ export function apply(ctx) {
         return sendNode(res, 200, await snapshot(url.searchParams.get('workspace') || undefined));
       }
 
+      if (url.pathname === '/dsh-prompt-stash/sync') {
+        const cfg = await readSyncConfig();
+        if (req.method === 'GET') {
+          const hasGit = await git(['--version']);
+          return sendNode(res, 200, { ...cfg, gitAvailable: hasGit.ok });
+        }
+        if (req.method !== 'POST') return sendNode(res, 405, { error: 'method not allowed' });
+        let body;
+        try {
+          body = JSON.parse(await readBody(req));
+        } catch {
+          return sendNode(res, 400, { error: 'malformed body' });
+        }
+        const next = {
+          ...cfg,
+          enabled: body.enabled === true,
+          remote: typeof body.remote === 'string' ? body.remote.trim() : cfg.remote,
+          branch: typeof body.branch === 'string' && body.branch.trim() ? body.branch.trim() : cfg.branch,
+          syncId: cfg.syncId || newId(),
+        };
+        if (next.enabled && await publicGitHubRepo(next.remote)) {
+          return sendNode(res, 400, { error: 'public-repo', code: 'public-repo' });
+        }
+        await writeSyncConfig(next);
+        const result = next.enabled && next.remote ? await syncNow(next) : { ok: true, code: 'saved' };
+        return sendNode(res, 200, { ...await readSyncConfig(), result, ...(await snapshot()) });
+      }
+
+      if (url.pathname === '/dsh-prompt-stash/sync/now') {
+        if (req.method !== 'POST') return sendNode(res, 405, { error: 'method not allowed' });
+        const cfg = await readSyncConfig();
+        const result = await syncNow(cfg);
+        return sendNode(res, result.ok ? 200 : 400, { ...await readSyncConfig(), result, ...(await snapshot()) });
+      }
+
       if (url.pathname === '/dsh-prompt-stash/export') {
         if (req.method !== 'GET') return sendNode(res, 405, { error: 'method not allowed' });
         const store = await readStore();
@@ -378,6 +676,7 @@ export function apply(ctx) {
         }
         const result = await mutate(body);
         if (!result.ok) return sendNode(res, 400, result);
+        scheduleSync();
         return sendNode(res, 200, { ...result, ...(await snapshot(body.workspaceId)) });
       }
 
