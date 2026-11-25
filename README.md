@@ -33,6 +33,8 @@ This is the case it is built for: a desktop at home, a laptop at work, a Mac in 
 
 ![The panel on Windows: two prompts and the last sync time in the footer](https://cdn.jsdelivr.net/gh/FindSomeSkills/dsh-prompt-pocket@main/docs/images/win-sync.png)
 
+![The same pocket on a Mac, in English](https://cdn.jsdelivr.net/gh/FindSomeSkills/dsh-prompt-pocket@main/docs/images/mac-sync-en.png)
+
 | What you do | What the plugin does |
 | --- | --- |
 | Save, edit, move or delete a prompt | pushes three seconds later |
