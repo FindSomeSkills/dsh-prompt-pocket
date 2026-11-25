@@ -408,7 +408,12 @@ async function runSync(cfg) {
   const local = await readStore();
   const remote = await readRemoteEntries(cfg);
   const merged = remote ? mergeStores(local, remote) : { entries: local.entries, tombstones: local.tombstones, added: 0, updated: 0, skipped: 0, deleted: 0 };
-  await writeStore({ version: 1, entries: merged.entries, tombstones: merged.tombstones });
+  // A sync can take seconds (fetch, worktree, push). Anything saved or deleted
+  // while it runs is newer than the snapshot read above, so merge that in before
+  // writing: otherwise the tail of the sync resurrects what was just deleted.
+  const fresh = await readStore();
+  const settled = mergeStores(merged, fresh);
+  await writeStore({ version: 1, entries: settled.entries, tombstones: settled.tombstones });
   await git(['add', '-A']);
   const status = await git(['status', '--porcelain']);
   if (status.ok && status.stdout.trim()) await git(['commit', '-m', `pocket sync ${new Date().toISOString()}`]);
