@@ -975,7 +975,7 @@ window.__ModuleLoader__.load({
                 marginLeft: 'auto',
               },
             },
-            syncing ? t('syncBusy') : sync && sync.enabled ? `${t('syncOn')}${sync.lastSyncAt ? ' · ' + new Date(sync.lastSyncAt).toLocaleTimeString() : ''}` : t('syncOff')
+            syncing ? t('syncBusy') : sync && sync.enabled ? `${t('syncOn')}${sync.lastSyncAt ? ' · ' + new Date(sync.lastSyncAt).toTimeString().slice(0, 5) : ''}` : t('syncOff')
           )
         ),
         h(

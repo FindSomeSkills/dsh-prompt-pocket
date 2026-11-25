@@ -25,11 +25,44 @@ Prompt libraries ask for a title, tags, a folder and a panel before they will ke
 
 ![The pocket collapsed to a faint dot in the corner of the composer](https://raw.githubusercontent.com/FindSomeSkills/dsh-prompt-pocket/main/docs/images/en-pill.png)
 
+## Two machines, one pocket
+
+![The panel on Windows: two prompts and `同步 · 06:41` in the footer](https://raw.githubusercontent.com/FindSomeSkills/dsh-prompt-pocket/main/docs/images/win-sync.png)
+
+**Sync goes through a private git repository you already own.** There is no server of ours, no account, and no token kept by the plugin: identity is the repository credential, and git handles it.
+
+**One file per prompt.** A change from the other machine arrives as a new file, so a merge keeps both sides instead of leaving you with one broken JSON document.
+
+**Pull on launch, when the panel opens after a stale gap, and every five minutes; push three seconds after a change.** A machine never sits on a stale list just because nobody touched it.
+
+**A deletion is a tombstone.** `{"id":…,"deletedAt":…}` replaces the prompt so the other machine learns it was deleted instead of merging it back. Tombstones are pruned after 90 days.
+
+**A public repository is refused.** Before enabling sync the plugin asks GitHub whether the repository is visible: a 200 stops it, a 404 (private) lets it through. There is no “continue anyway”.
+
+Set it once per machine: open the panel, click the sync line, paste the repository URL. The first sync pulls what exists and pushes what is local.
+
 ## Install
 
 ```bash
-dsh plugin --profile web add dsh-prompt-pocket
+dsh plugin --profile web add dsh-prompt-pocket@1.0.7
 ```
+
+### Install with one prompt
+
+Paste this into DSH; it checks the prerequisites, installs the pinned version, verifies what landed on disk, restarts the host and tells you what to look for. **Needs access to `registry.npmjs.org` and `github.com`; if the network is blocked, it stops and says so instead of changing anything else.**
+
+```
+Install the DSH plugin dsh-prompt-pocket 1.0.7, in this order, and stop at the first failure with the exact error:
+1. Check node -v is 20 or newer and git --version works.
+2. Run: dsh plugin --profile web add dsh-prompt-pocket@1.0.7
+   (pin the version: pnpm's minimumReleaseAge can resolve an older one.)
+3. Read ~/.dsh/profiles/web/node_modules/dsh-prompt-pocket/package.json and confirm version is 1.0.7.
+4. Restart the host: on Windows stop DSH021-Web and start it again; on macOS run launchctl kickstart -k gui/$(id -u)/com.deepseek.dsh.web
+5. Open http://127.0.0.1:2081 and force-reload (Ctrl+Shift+R on Windows, Cmd+Shift+R on macOS); a faint dot should appear in the bottom-right corner.
+Requires registry.npmjs.org and github.com. If either is unreachable, stop and report the error instead of changing other configuration.
+```
+
+
 
 Restart the host once so the route, the tool and the client bundle register, then force-reload the page with `Ctrl+Shift+R`. From a checkout instead:
 
@@ -56,7 +89,7 @@ dsh plugin --profile web add .
 
 ## Where the data lives
 
-`$DSH_HOME/dsh-prompt-stash/store.json`, by default `~/.dsh/dsh-prompt-stash/store.json`. One file for every profile and every browser pointed at this host; writes go through a temporary file and a rename, and a damaged file is renamed to `.corrupt-<timestamp>.bak` instead of blocking the panel.
+`$DSH_HOME/dsh-prompt-stash/store.d/`, one JSON file per prompt, plus tombstones for deletions. Every profile and every browser pointed at this host reads the same directory. Writes go through a temporary file and a rename; a damaged entry is renamed to `.corrupt-<timestamp>.bak` and skipped instead of blocking the panel.
 
 ## Requirements
 

@@ -25,11 +25,43 @@
 
 ![口袋收起时就是输入框角落一枚很淡的圆点](https://raw.githubusercontent.com/FindSomeSkills/dsh-prompt-pocket/main/docs/images/zh-pill.png)
 
+## 两台机器，一个口袋
+
+![Windows 上的面板：两条提示词，底部是 `同步 · 06:41`](https://raw.githubusercontent.com/FindSomeSkills/dsh-prompt-pocket/main/docs/images/win-sync.png)
+
+**同步走你自己的私有 git 仓库。** 没有我们的服务器，没有账号，插件也不保存任何 token：身份就是仓库凭据，交给 git 管。
+
+**一条提示词一个文件。** 另一台机器的改动作为新文件进来，合并不打架，不会把一份 JSON 写坏。
+
+**启动拉一次，面板打开且距上次同步超过 30 秒拉一次，另外每五分钟一次；改动后三秒推送。** 不会因为没人动它就停在旧清单上。
+
+**删除是墓碑。** `{"id":…,"deletedAt":…}` 覆盖那条提示词，另一台机器据此知道该删，而不是把它合并回来。墓碑保留 90 天后清理。
+
+**公开仓库直接拒绝。** 开启前问一次 GitHub：200 说明公开，停下；404 说明私有，放行。没有「仍然继续」这个选项。
+
+每台机器设置一次：打开面板，点同步那行，粘仓库地址。第一次会拉下已有内容、推上本机内容。
+
 ## 安装
 
 ```bash
-dsh plugin --profile web add dsh-prompt-pocket
+dsh plugin --profile web add dsh-prompt-pocket@1.0.7
 ```
+
+### 一句话装好
+
+把下面这段发给 DSH：它会检查前置条件、装写死的版本、核对磁盘上的版本、重启宿主，再告诉你该看到什么。**需要能访问 `registry.npmjs.org` 和 `github.com`；网络不通它会停下并说明，不会去改别的配置。**
+
+```
+帮我安装 DSH 插件 dsh-prompt-pocket 1.0.7，按顺序做，哪一步失败就停下把原文报给我：
+1. 检查 node -v 是否 20 或更高，git --version 是否可用；
+2. 执行 dsh plugin --profile web add dsh-prompt-pocket@1.0.7（版本必须写死，pnpm 会跳过刚发布的版本）；
+3. 读 ~/.dsh/profiles/web/node_modules/dsh-prompt-pocket/package.json，确认 version 是 1.0.7；
+4. 重启宿主：Windows 停掉 DSH021-Web 再启动；macOS 执行 launchctl kickstart -k gui/$(id -u)/com.deepseek.dsh.web；
+5. 打开 http://127.0.0.1:2081 ，强刷页面（Windows Ctrl+Shift+R / macOS Cmd+Shift+R），确认右下角出现一枚圆点。
+需要能访问 registry.npmjs.org 和 github.com；网络不通就告诉我，不要改别的配置。
+```
+
+
 
 装完重启一次宿主，让路由、工具和客户端 bundle 注册；然后 `Ctrl+Shift+R` 强刷页面。要从源码装：
 
@@ -56,7 +88,7 @@ dsh plugin --profile web add .
 
 ## 数据在哪
 
-`$DSH_HOME/dsh-prompt-stash/store.json`，默认 `~/.dsh/dsh-prompt-stash/store.json`。一个文件，所有 profile、所有连到这台机器的浏览器共用；写入走临时文件 + rename，文件坏了会改名成 `.corrupt-<时间戳>.bak`，不会挡住面板。
+`$DSH_HOME/dsh-prompt-stash/store.d/`，一条提示词一个 JSON 文件，删除留墓碑。所有 profile、所有连到这台机器的浏览器读同一个目录。写入走临时文件 + rename；某一条坏了会改名成 `.corrupt-<时间戳>.bak` 并跳过，不会挡住面板。
 
 ## 运行要求
 

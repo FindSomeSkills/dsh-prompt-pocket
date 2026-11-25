@@ -31,17 +31,23 @@ dsh web
 
 4. 另开一个终端窗口，安装插件
 -----------------------------
-dsh plugin --profile web add dsh-prompt-pocket@1.0.5
+dsh plugin --profile web add dsh-prompt-pocket@1.0.7
 
 为什么写死版本：DSH 装插件走 pnpm，它有个 minimumReleaseAge 延迟策略，
 刚发布的版本可能被跳过，第一次会解析成 1.0.0——那个版本还没有同步功能。
-写 @1.0.5 是唯一可靠的办法。
+写 @1.0.7 是唯一可靠的办法。
 
-装完核对版本，输出必须是 1.0.5：
+装完核对版本，输出必须是 1.0.7：
 
 cat ~/.dsh/profiles/web/node_modules/dsh-prompt-pocket/package.json | grep '"version"'
 
 然后回到第 3 步那个窗口，按 Ctrl+C 停掉，再执行：
+
+如果宿主由 launchd 托管（com.deepseek.dsh.web），不要用 kill + nohup，会自己抢端口：
+
+launchctl kickstart -k gui/$(id -u)/com.deepseek.dsh.web
+
+否则就像平常一样 Ctrl+C 再重建：
 
 dsh web
 
@@ -100,15 +106,18 @@ https://github.com/FindSomeSkills/dsh-prompt-pocket-sync.git
 
 ls ~/.dsh/dsh-prompt-stash/store.d
 
-会看到 5 个 .json 文件，这是对的：2 个是你的提示词，3 个是之前删掉的条目
-留下的墓碑（内容里带 deletedAt）。墓碑要留着，防止另一台机器把删掉的条目
-又同步回来。90 天后自动清理。
+文件总数 = 有效条目 + 墓碑，会变，别按固定数字核对。
+墓碑是删掉的条目留下来的（内容里带 deletedAt），要留着防止另一台机器把
+删掉的条目同步回来，90 天后自动清理。
 
-想分辨哪些是有效的，跑这条：
+只列有效条目：
 
 grep -L deletedAt ~/.dsh/dsh-prompt-stash/store.d/*.json
 
-应该只列出 2 个文件。
+只列墓碑：
+
+grep -l deletedAt ~/.dsh/dsh-prompt-stash/store.d/*.json
+
 
 git -C ~/.dsh/dsh-prompt-stash log --oneline -3
 

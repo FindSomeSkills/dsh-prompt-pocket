@@ -1,0 +1,15 @@
+﻿[06:29:06] restart: looking for the process listening on 2081
+[06:29:07] restart: stopping pid 14220
+[06:29:10] restart: starting the DSH021-Web task
+[06:29:21] restart: port 2081 listening after 9s (pid 2400)
+[06:29:23] PASS: GET /state answers 200 with cap 500
+[06:29:23] export: 2 entries
+[06:29:23] PASS: GET /export answers with the entries array
+[06:29:23] PASS: POST /mutate save writes one entry
+[06:29:27] polish: model returned 152 chars
+[06:29:27] PASS: POST /polish reaches the model or refuses cleanly
+[06:29:27] version: 1.0.7
+[06:29:27] PASS: installed copy matches the repository version
+[06:29:27] done: failures=0
+[06:29:27] cleaned self-check entry pmwwp4imt68139
+[06:29:27] RESULT: all checks passed. Log: C:\Knowledge base\02-Project\dsh-prompt-stash\artifacts\restart-verify-20261126-062906.log
