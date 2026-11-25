@@ -387,7 +387,17 @@ async function publicGitHubRepo(remote) {
   }
 }
 
+let syncInFlight = null;
+
 async function syncNow(cfg) {
+  if (syncInFlight) return syncInFlight;
+  syncInFlight = runSync(cfg).finally(() => {
+    syncInFlight = null;
+  });
+  return syncInFlight;
+}
+
+async function runSync(cfg) {
   if (!cfg.enabled || !cfg.remote) return { ok: false, code: 'disabled' };
   const hasGit = await git(['--version']);
   if (!hasGit.ok) {
@@ -601,6 +611,22 @@ export const inject = ['webServer', 'tools'];
 export function apply(ctx) {
   const sessions = ctx.get('sessions');
 
+  // Pull once the host is up, then keep pulling every five minutes. Without this
+  // a machine only ever pushed its own changes and never saw the other one.
+  readSyncConfig()
+    .then((cfg) => {
+      if (cfg.enabled && cfg.remote) return syncNow(cfg);
+    })
+    .catch(() => {});
+  const timer = setInterval(() => {
+    readSyncConfig()
+      .then((cfg) => {
+        if (cfg.enabled && cfg.remote) return syncNow(cfg);
+      })
+      .catch(() => {});
+  }, 5 * 60 * 1000);
+  if (timer.unref) timer.unref();
+
   ctx.webServer.register({
     kind: 'prefix',
     path: '/dsh-prompt-stash',
@@ -609,6 +635,9 @@ export function apply(ctx) {
 
       if (url.pathname === '/dsh-prompt-stash/state') {
         if (req.method !== 'GET') return sendNode(res, 405, { error: 'method not allowed' });
+        // Opening the panel refreshes from the remote when the last sync is old.
+        const cfg = await readSyncConfig();
+        if (cfg.enabled && cfg.remote && Date.now() - cfg.lastSyncAt > 30000) scheduleSync();
         return sendNode(res, 200, await snapshot(url.searchParams.get('workspace') || undefined));
       }
 

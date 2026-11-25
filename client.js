@@ -247,6 +247,9 @@ window.__ModuleLoader__.load({
 
       useEffect(() => {
         load();
+        // 打开面板后如果有同步，拉到远端条目需要几秒；到点再读一次，避免看到旧清单
+        const timer = setTimeout(() => load(), 8000);
+        return () => clearTimeout(timer);
       }, [load]);
 
       const remember = useCallback(() => {

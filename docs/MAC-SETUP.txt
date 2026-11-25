@@ -1,0 +1,152 @@
+DSH 提示词口袋 —— Mac 安装与同步
+=================================
+
+目标：Mac 上装好 DSH 和 dsh-prompt-pocket，从私有仓库拉下 Windows 这边已有的提示词。
+以下命令一行一行复制到「终端」执行，每条执行完再下一条。
+
+
+1. 确认 Node.js（需要 20 或更高）
+---------------------------------
+node -v
+
+如果提示 command not found，或者在 20 以下：
+
+brew install node
+node -v
+
+
+2. 安装 DSH
+-----------
+npm install -g @deepseek-ai/dsh
+dsh --version
+
+
+3. 先启动一次，让它建好 profile
+-------------------------------
+dsh web
+
+浏览器会打开 http://127.0.0.1:2081 ，能打开就说明起来了。
+先不要关这个终端窗口，下一步装完插件要重启。
+
+
+4. 另开一个终端窗口，安装插件
+-----------------------------
+dsh plugin --profile web add dsh-prompt-pocket@1.0.5
+
+为什么写死版本：DSH 装插件走 pnpm，它有个 minimumReleaseAge 延迟策略，
+刚发布的版本可能被跳过，第一次会解析成 1.0.0——那个版本还没有同步功能。
+写 @1.0.5 是唯一可靠的办法。
+
+装完核对版本，输出必须是 1.0.5：
+
+cat ~/.dsh/profiles/web/node_modules/dsh-prompt-pocket/package.json | grep '"version"'
+
+然后回到第 3 步那个窗口，按 Ctrl+C 停掉，再执行：
+
+dsh web
+
+然后在浏览器里按 Cmd+Shift+R 强制刷新页面。
+页面右下角应该出现一枚很淡的小圆点。
+
+
+5. 让 git 能访问私有仓库
+------------------------
+brew install gh
+gh auth login
+gh auth setup-git
+
+gh auth login 的选择：
+  GitHub.com
+  HTTPS
+  Login with a web browser  （按提示在浏览器里输入一次性代码）
+
+检查是否通了：
+
+git ls-remote https://github.com/FindSomeSkills/dsh-prompt-pocket-sync.git
+
+能列出一行 ref（refs/heads/main）就说明权限没问题。
+
+
+6. 需要代理时才做（不需要跳过）
+-------------------------------
+先看你的代理软件监听端口，Clash 通常是 7890，不是 Windows 那边的 7897。
+
+git config --global http.https://github.com.proxy http://127.0.0.1:7890
+
+这一条只对 GitHub 生效，不影响其它仓库。
+如果之后要取消：
+
+git config --global --unset http.https://github.com.proxy
+
+
+7. 在插件里开启同步
+-------------------
+点页面右下角那枚圆点，打开面板。
+面板底部有「导出  导入  同步未开启」，点「同步未开启」。
+
+弹出输入框，粘贴这个地址：
+
+https://github.com/FindSomeSkills/dsh-prompt-pocket-sync.git
+
+确定。它会立刻同步一次。
+成功时那行字变成「同步 · 某个时间」。
+
+
+8. 验证
+-------
+面板里应该出现 Windows 那边已经有的两条提示词。
+
+终端再核一遍：
+
+ls ~/.dsh/dsh-prompt-stash/store.d
+
+会看到 5 个 .json 文件，这是对的：2 个是你的提示词，3 个是之前删掉的条目
+留下的墓碑（内容里带 deletedAt）。墓碑要留着，防止另一台机器把删掉的条目
+又同步回来。90 天后自动清理。
+
+想分辨哪些是有效的，跑这条：
+
+grep -L deletedAt ~/.dsh/dsh-prompt-stash/store.d/*.json
+
+应该只列出 2 个文件。
+
+git -C ~/.dsh/dsh-prompt-stash log --oneline -3
+
+应该看到刚才同步产生的提交。
+
+
+常见问题
+--------
+状态显示「同步失败」
+    把鼠标停在「同步失败」上，标题里是具体错误，先看那句话。
+
+could not read Username
+    git 没有凭据。重跑：
+    gh auth setup-git
+
+Failed to connect / 连接超时
+    网络问题。按第 6 步配代理，端口换成你自己软件的端口。
+
+remote: Repository not found
+    登录的账号没有这个私有仓库的权限。确认 gh 登的是正确账号：
+    gh auth status
+
+提示 public repo
+    地址填成了公开仓库。换回私有库地址：
+    https://github.com/FindSomeSkills/dsh-prompt-pocket-sync.git
+
+
+两个注意
+--------
+不要在 Mac 上用公开仓库测试。插件会拦，但网络不通时拦不住，那一刻提示词就是公开网页。
+
+仓库里是明文。私有库只有你可读，但 GitHub 服务端能读。端到端加密还没做。
+
+
+跑完之后要给我的信息
+--------------------
+1. 面板底部那行字是什么（同步 / 同步失败 / 同步未开启）
+2. ls ~/.dsh/dsh-prompt-stash/store.d 的结果
+3. 如果失败，鼠标停在「同步失败」上看到的错误原文
+
+另外记一句：Mac 上强刷是 Cmd+Shift+R，不是 Ctrl+Shift+R。

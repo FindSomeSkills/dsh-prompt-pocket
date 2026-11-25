@@ -19,7 +19,7 @@ Prompt libraries ask for a title, tags, a folder and a panel before they will ke
 - **✦ writes a DSH prompt, it does not paraphrase.** Variables, paths, URLs and code blocks are kept byte-for-byte, nothing is invented, and filler is forbidden by the instruction. A failed or empty result never replaces your text; accepting a rewrite keeps the old one in `prior`.
 - **One click on an assistant reply keeps it verbatim** as source material, read from the session log — text blocks only, tool calls never leak in.
 - **The agent shares the same pocket** through the `prompt_stash` tool, scoped to the drawers so one project's prompts do not show up in another's answer.
-- **Sync through your own private git repository.** The panel pushes each change and merges the remote on launch; prompts are one file each, so a merge keeps both sides instead of corrupting one document. **A public repository is refused** — the plugin asks GitHub whether the repo is visible before it enables sync.
+- **Sync through your own private git repository, automatically.** The host pulls on launch, when the panel opens after a stale gap, and every five minutes; each change is pushed three seconds after you make it. The panel pushes each change and merges the remote on launch; prompts are one file each, so a merge keeps both sides instead of corrupting one document. **A public repository is refused** — the plugin asks GitHub whether the repo is visible before it enables sync.
 - **Export and import as one JSON file.** For machines without git, or for a backup before you trust a sync.
 - **500 prompts, least recently used dropped, one JSON file, atomic writes, no runtime dependencies, no account.** Nothing leaves the machine except the one model call you explicitly ask for.
 
