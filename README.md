@@ -25,21 +25,25 @@ Prompt libraries ask for a title, tags, a folder and a panel before they will ke
 
 ![The pocket collapsed to a faint dot in the corner of the composer](https://raw.githubusercontent.com/FindSomeSkills/dsh-prompt-pocket/main/docs/images/en-pill.png)
 
-## Two machines, one pocket
+## Any number of machines, synced automatically
 
-![The panel on Windows: two prompts and `同步 · 06:41` in the footer](https://cdn.jsdelivr.net/gh/FindSomeSkills/dsh-prompt-pocket@main/docs/images/win-sync.png)
+![The panel on Windows: two prompts and the last sync time in the footer](https://cdn.jsdelivr.net/gh/FindSomeSkills/dsh-prompt-pocket@main/docs/images/win-sync.png)
 
-**Sync goes through a private git repository you already own.** There is no server of ours, no account, and no token kept by the plugin: identity is the repository credential, and git handles it.
+**Automatic, not a button.** Change something and it is pushed three seconds later; open the panel and it has already pulled. There is no upload step.
 
-**One file per prompt.** A change from the other machine arrives as a new file, so a merge keeps both sides instead of leaving you with one broken JSON document.
+**Any number of devices.** Each machine points at the same private repository and keeps a full copy. Two, five, ten — nothing counts devices, and there is no server of ours in the middle.
 
-**Pull on launch, when the panel opens after a stale gap, and every five minutes; push three seconds after a change.** A machine never sits on a stale list just because nobody touched it.
+**The cadence, precisely.** Push three seconds after a change. Pull at launch, when the panel opens and the last sync is older than 30 seconds, and every five minutes. Worst case while idle is five minutes; opening the panel makes it current.
 
-**A deletion is a tombstone.** `{"id":…,"deletedAt":…}` replaces the prompt so the other machine learns it was deleted instead of merging it back. Tombstones are pruned after 90 days.
+**What travels:** the prompt text, its title, which drawer it belongs to (General or a specific project), how often it was used, the previous version kept by ✦, and deletions.
 
-**A public repository is refused.** Before enabling sync the plugin asks GitHub whether the repository is visible: a 200 stops it, a 404 (private) lets it through. There is no “continue anyway”.
+**What stays local:** the dot’s position, the repository URL and the git credential.
 
-Set it once per machine: open the panel, click the sync line, paste the repository URL. The first sync pulls what exists and pushes what is local.
+**A deletion is a tombstone.** `{"id":…,"deletedAt":…}` replaces the prompt so the other machines delete it instead of merging it back; tombstones are pruned after 90 days.
+
+**The same prompt edited on two machines:** the newer `updatedAt` wins, and a deletion beats an edit made before it. No merge dialog — a dialog on every device turns a pocket into a chore.
+
+**A public repository is refused.** Before enabling sync the plugin asks GitHub whether the repository is visible: a 200 stops it, a 404 (private) lets it through.
 
 ## Install
 
