@@ -223,8 +223,8 @@ async function mutate(body) {
     const i = at(body.id);
     if (i < 0) return { ok: false, code: 'not-found' };
     entries.splice(i, 1);
+    // The tombstone replaces the entry file: same name, different body.
     await writeTombstoneFile({ id: body.id, deletedAt: Date.now() });
-    await fs.unlink(path.join(STORE, `${body.id}.json`)).catch(() => {});
     return { ok: true };
   }
 

@@ -212,9 +212,16 @@ const pass = (n) => ok.push(n);
 {
   const dir = path.join(tmp, 'dsh-prompt-stash', 'store.d');
   const files = (await fs.readdir(dir)).filter((f) => f.endsWith('.json'));
-  assert.ok(files.length > 0, '应当已经有条目文件');
+  const victims = [];
+  for (const name of files) {
+    try {
+      const raw = JSON.parse(await fs.readFile(path.join(dir, name), 'utf8'));
+      if (typeof raw.deletedAt !== 'number') victims.push(name);
+    } catch {}
+  }
+  assert.ok(victims.length > 0, '应当已经有条目文件');
   const before = (await call('/dsh-prompt-stash/state')).json.total;
-  await fs.writeFile(path.join(dir, files[0]), '{ this is not json', 'utf8');
+  await fs.writeFile(path.join(dir, victims[0]), '{ this is not json', 'utf8');
   const r = await call('/dsh-prompt-stash/state');
   assert.equal(r.status, 200);
   const after = await fs.readdir(dir);
@@ -315,6 +322,19 @@ const pass = (n) => ok.push(n);
   const r = await post('/dsh-prompt-stash/import', { entries: 'nope' });
   assert.equal(r.status, 400);
   pass('导入缺数组时 400');
+}
+
+// 20.5 removing an entry leaves a tombstone file, and it survives the next read
+{
+  const saved = await post('/dsh-prompt-stash/mutate', { op: 'save', text: 'to be deleted', scope: 'global' });
+  const id = saved.json.entry.id;
+  await post('/dsh-prompt-stash/mutate', { op: 'remove', id });
+  const file = path.join(tmp, 'dsh-prompt-stash', 'store.d', `${id}.json`);
+  const raw = JSON.parse(await fs.readFile(file, 'utf8'));
+  assert.equal(typeof raw.deletedAt, 'number', '删除要留下墓碑文件');
+  const state = await call('/dsh-prompt-stash/state');
+  assert.ok(!state.json.entries.some((e) => e.id === id), '墓碑不能出现在清单里');
+  pass('删除留下墓碑文件，清单里不再出现');
 }
 
 // 21. git sync: first push creates the branch on the remote
