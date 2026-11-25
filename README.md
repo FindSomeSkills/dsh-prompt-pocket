@@ -31,7 +31,7 @@ Prompt libraries ask for a title, tags, a folder and a panel before they will ke
 
 This is the case it is built for: a desktop at home, a laptop at work, a Mac in another room, a spare machine you open once a month. **Each one points at the same private repository and keeps a full copy**, so the prompt you saved at noon is on the machine you open at night.
 
-![The panel on Windows: two prompts and the last sync time in the footer](https://cdn.jsdelivr.net/gh/FindSomeSkills/dsh-prompt-pocket@main/docs/images/win-sync.png)
+![The panel on Windows: two prompts and the last sync time in the footer](https://cdn.jsdelivr.net/gh/FindSomeSkills/dsh-prompt-pocket@main/docs/images/en-sync-2.png)
 
 | What you do | What the plugin does |
 | --- | --- |

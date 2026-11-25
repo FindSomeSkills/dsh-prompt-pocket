@@ -31,7 +31,7 @@
 
 这就是它要解决的场景：家里一台台式机、公司一台笔记本、书房一台 Mac，可能还有一台一个月才开一次的备用机。**每台填同一个私有仓库地址，各自存一份完整副本**，中午在台式机上存的提示词，晚上打开另一台就在。
 
-![Windows 上的面板：两条提示词，底部是最后一次同步时间](https://cdn.jsdelivr.net/gh/FindSomeSkills/dsh-prompt-pocket@main/docs/images/win-sync.png)
+![Windows 上的面板：两条提示词，底部是最后一次同步时间](https://cdn.jsdelivr.net/gh/FindSomeSkills/dsh-prompt-pocket@main/docs/images/win-sync-2.png)
 
 | 你做了什么 | 插件做了什么 |
 | --- | --- |
