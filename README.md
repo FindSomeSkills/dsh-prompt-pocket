@@ -20,7 +20,7 @@ Prompt libraries ask for a title, tags, a folder and a panel before they will ke
 - **One click on an assistant reply keeps it verbatim** as source material, read from the session log — text blocks only, tool calls never leak in.
 - **The agent shares the same pocket** through the `prompt_stash` tool, scoped to the drawers so one project's prompts do not show up in another's answer.
 - **Sync through your own private git repository, automatically.** The host pulls on launch, when the panel opens after a stale gap, and every five minutes; each change is pushed three seconds after you make it. The panel pushes each change and merges the remote on launch; prompts are one file each, so a merge keeps both sides instead of corrupting one document. **A public repository is refused** — the plugin asks GitHub whether the repo is visible before it enables sync.
-- **Export and import as one JSON file.** For machines without git, or for a backup before you trust a sync.
+- **Backup and restore as one JSON file.** For machines without git, or for a backup before you trust a sync.
 - **500 prompts, least recently used dropped, one JSON file, atomic writes, no runtime dependencies, no account.** Nothing leaves the machine except the one model call you explicitly ask for.
 
 ![The pocket collapsed to a faint dot in the corner of the composer](https://raw.githubusercontent.com/FindSomeSkills/dsh-prompt-pocket/main/docs/images/en-pill.png)
@@ -32,8 +32,6 @@ Prompt libraries ask for a title, tags, a folder and a panel before they will ke
 This is the case it is built for: a desktop at home, a laptop at work, a Mac in another room, a spare machine you open once a month. **Each one points at the same private repository and keeps a full copy**, so the prompt you saved at noon is on the machine you open at night.
 
 ![The panel on Windows: two prompts and the last sync time in the footer](https://cdn.jsdelivr.net/gh/FindSomeSkills/dsh-prompt-pocket@main/docs/images/win-sync.png)
-
-![The same pocket on a Mac, in English](https://cdn.jsdelivr.net/gh/FindSomeSkills/dsh-prompt-pocket@main/docs/images/mac-sync-en.png)
 
 | What you do | What the plugin does |
 | --- | --- |
