@@ -27,7 +27,7 @@ Prompt libraries ask for a title, tags, a folder and a panel before they will ke
 
 ## Two machines, one pocket
 
-![The panel on Windows: two prompts and `同步 · 06:41` in the footer](https://raw.githubusercontent.com/FindSomeSkills/dsh-prompt-pocket/main/docs/images/win-sync.png)
+![The panel on Windows: two prompts and `同步 · 06:41` in the footer](https://cdn.jsdelivr.net/gh/FindSomeSkills/dsh-prompt-pocket@main/docs/images/win-sync.png)
 
 **Sync goes through a private git repository you already own.** There is no server of ours, no account, and no token kept by the plugin: identity is the repository credential, and git handles it.
 

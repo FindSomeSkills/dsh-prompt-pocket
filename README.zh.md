@@ -27,7 +27,7 @@
 
 ## 两台机器，一个口袋
 
-![Windows 上的面板：两条提示词，底部是 `同步 · 06:41`](https://raw.githubusercontent.com/FindSomeSkills/dsh-prompt-pocket/main/docs/images/win-sync.png)
+![Windows 上的面板：两条提示词，底部是 `同步 · 06:41`](https://cdn.jsdelivr.net/gh/FindSomeSkills/dsh-prompt-pocket@main/docs/images/win-sync.png)
 
 **同步走你自己的私有 git 仓库。** 没有我们的服务器，没有账号，插件也不保存任何 token：身份就是仓库凭据，交给 git 管。
 
