@@ -1,6 +1,6 @@
 # dsh-prompt-pocket
 
-**A prompt pocket for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness): one keystroke saves what you were typing, one click puts it back at the caret.** It lives as a 24px dot in the corner, so the layout never grows a sidebar, a chip row, or a panel that shifts the conversation.
+**A prompt pocket for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness): one keystroke saves what you were typing, one click puts it back at the caret.** It lives as a 24px dot in the corner, so the layout never grows a sidebar, a chip row, or a panel that shifts the conversation. **It also syncs across any number of machines through a private repository you own** — no account, no server of ours, no upload step.
 
 ![The prompt pocket open over a session: a search box, two drawers, three saved prompts and the dot in the corner](https://raw.githubusercontent.com/FindSomeSkills/dsh-prompt-pocket/main/docs/images/en-panel.png)
 
@@ -27,17 +27,24 @@ Prompt libraries ask for a title, tags, a folder and a panel before they will ke
 
 ## Any number of machines, synced automatically
 
+**Automatic, not a button.** Change something and it is pushed three seconds later; open the panel and it has already pulled. There is no upload step, no export file, no “send to device”.
+
+This is the case it is built for: a desktop at home, a laptop at work, a Mac in another room, a spare machine you open once a month. **Each one points at the same private repository and keeps a full copy**, so the prompt you saved at noon is on the machine you open at night.
+
 ![The panel on Windows: two prompts and the last sync time in the footer](https://cdn.jsdelivr.net/gh/FindSomeSkills/dsh-prompt-pocket@main/docs/images/win-sync.png)
 
-**Automatic, not a button.** Change something and it is pushed three seconds later; open the panel and it has already pulled. There is no upload step.
+| What you do | What the plugin does |
+| --- | --- |
+| Save, edit, move or delete a prompt | pushes three seconds later |
+| Start DSH | pulls once at launch |
+| Open the panel, last sync older than 30 seconds | pulls before you see the list |
+| Leave it idle | pulls every five minutes |
 
-**Any number of devices.** Each machine points at the same private repository and keeps a full copy. Two, five, ten — nothing counts devices, and there is no server of ours in the middle.
-
-**The cadence, precisely.** Push three seconds after a change. Pull at launch, when the panel opens and the last sync is older than 30 seconds, and every five minutes. Worst case while idle is five minutes; opening the panel makes it current.
+Worst case while the panel stays closed is five minutes; opening the panel makes it current. It is not a live socket, on purpose: a socket means a server to keep alive, and this tool has none.
 
 **What travels:** the prompt text, its title, which drawer it belongs to (General or a specific project), how often it was used, the previous version kept by ✦, and deletions.
 
-**What stays local:** the dot’s position, the repository URL and the git credential.
+**What stays local:** the dot’s position, the repository URL and the git credential. Window placement is per browser, not per account.
 
 **A deletion is a tombstone.** `{"id":…,"deletedAt":…}` replaces the prompt so the other machines delete it instead of merging it back; tombstones are pruned after 90 days.
 
