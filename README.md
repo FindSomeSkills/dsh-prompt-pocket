@@ -55,7 +55,8 @@ Worst case while the panel stays closed is five minutes; opening the panel makes
 ## Install
 
 ```bash
-dsh plugin --profile web add dsh-prompt-pocket@$(npm view dsh-prompt-pocket version)
+node -e "fetch('https://registry.npmjs.org/dsh-prompt-pocket/latest').then(r=>r.json()).then(j=>console.log(j.version))"
+dsh plugin --profile web add dsh-prompt-pocket@<the version printed above>
 ```
 
 ### Install with one prompt
@@ -63,19 +64,18 @@ dsh plugin --profile web add dsh-prompt-pocket@$(npm view dsh-prompt-pocket vers
 Paste this into DSH; it checks the prerequisites, installs the pinned version, verifies what landed on disk, restarts the host and tells you what to look for. **Needs access to `registry.npmjs.org` and `github.com`; if the network is blocked, it stops and says so instead of changing anything else.**
 
 ```
-Install the DSH plugin dsh-prompt-pocket 1.0.16, in this order, and stop at the first failure with the exact error:
+Install the DSH plugin dsh-prompt-pocket, in this order, and stop at the first failure with the exact error:
 1. Check node -v is 20 or newer and git --version works.
-2. Run: dsh plugin --profile web add dsh-prompt-pocket@$(npm view dsh-prompt-pocket version)
-   (pin the version: pnpm's minimumReleaseAge can resolve an older one.)
-3. Read ~/.dsh/profiles/web/node_modules/dsh-prompt-pocket/package.json and confirm version is 1.0.16.
-4. Restart the host: on Windows stop DSH021-Web and start it again; on macOS run launchctl kickstart -k gui/$(id -u)/com.deepseek.dsh.web
-5. Open http://127.0.0.1:2081 and force-reload (Ctrl+Shift+R on Windows, Cmd+Shift+R on macOS); a faint dot should appear in the bottom-right corner.
-Requires registry.npmjs.org and github.com. If either is unreachable, stop and report the error instead of changing other configuration.
+2. Read the latest version (it prints one version number; note it down):
+node -e "fetch('https://registry.npmjs.org/dsh-prompt-pocket/latest').then(r=>r.json()).then(j=>console.log(j.version))"
+3. Run: dsh plugin --profile web add dsh-prompt-pocket@<the version from step 2> (pin it: pnpm's minimumReleaseAge can resolve an older one).
+4. Read ~/.dsh/profiles/web/node_modules/dsh-prompt-pocket/package.json and confirm the version matches step 2.
+5. Restart the host: on Windows stop DSH021-Web and start it again; on macOS run launchctl kickstart -k gui/$(id -u)/com.deepseek.dsh.web
+6. Open http://127.0.0.1:2081 and force-reload (Ctrl+Shift+R on Windows, Cmd+Shift+R on macOS); a faint dot should appear in the bottom-right corner.
+Do not use npm view for this: npm can refuse with EBADDEVENGINES. Needs registry.npmjs.org and github.com. If either is unreachable, stop and report the error instead of changing other configuration.
 ```
 
-
-
-Restart the host once so the route, the tool and the client bundle register, then force-reload the page with `Ctrl+Shift+R`. From a checkout instead:
+Or install from the repository:
 
 ```bash
 git clone https://github.com/FindSomeSkills/dsh-prompt-pocket
@@ -113,7 +113,8 @@ Paste this into DSH to upgrade:
 ```
 Upgrade the DSH plugin dsh-prompt-pocket:
 1. Read the current version: cat ~/.dsh/profiles/web/node_modules/dsh-prompt-pocket/package.json | grep '"version"'
-2. Read the latest version: npm view dsh-prompt-pocket version
+2. Read the latest version (it prints the number):
+node -e "fetch('https://registry.npmjs.org/dsh-prompt-pocket/latest').then(r=>r.json()).then(j=>console.log(j.version))"
 3. If they are equal, say "already current" and change nothing.
 4. Otherwise run dsh plugin --profile web add dsh-prompt-pocket@<latest> (pin the version).
 5. Read the version on disk again and confirm it changed.

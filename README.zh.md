@@ -55,7 +55,8 @@
 ## 安装
 
 ```bash
-dsh plugin --profile web add dsh-prompt-pocket@$(npm view dsh-prompt-pocket version)
+node -e "fetch('https://registry.npmjs.org/dsh-prompt-pocket/latest').then(r=>r.json()).then(j=>console.log(j.version))"
+dsh plugin --profile web add dsh-prompt-pocket@<上面打印的版本>
 ```
 
 ### 一句话装好
@@ -63,18 +64,18 @@ dsh plugin --profile web add dsh-prompt-pocket@$(npm view dsh-prompt-pocket vers
 把下面这段发给 DSH：它会检查前置条件、装写死的版本、核对磁盘上的版本、重启宿主，再告诉你该看到什么。**需要能访问 `registry.npmjs.org` 和 `github.com`；网络不通它会停下并说明，不会去改别的配置。**
 
 ```
-帮我安装 DSH 插件 dsh-prompt-pocket 1.0.16，按顺序做，哪一步失败就停下把原文报给我：
+帮我安装 DSH 插件 dsh-prompt-pocket，按顺序做，哪一步失败就停下把原文报给我：
 1. 检查 node -v 是否 20 或更高，git --version 是否可用；
-2. 执行 dsh plugin --profile web add dsh-prompt-pocket@$(npm view dsh-prompt-pocket version)（版本必须写死，pnpm 会跳过刚发布的版本）；
-3. 读 ~/.dsh/profiles/web/node_modules/dsh-prompt-pocket/package.json，确认 version 是 1.0.16；
-4. 重启宿主：Windows 停掉 DSH021-Web 再启动；macOS 执行 launchctl kickstart -k gui/$(id -u)/com.deepseek.dsh.web；
-5. 打开 http://127.0.0.1:2081 ，强刷页面（Windows Ctrl+Shift+R / macOS Cmd+Shift+R），确认右下角出现一枚圆点。
-需要能访问 registry.npmjs.org 和 github.com；网络不通就告诉我，不要改别的配置。
+2. 查最新版本（会打印一个版本号，记下来）：
+node -e "fetch('https://registry.npmjs.org/dsh-prompt-pocket/latest').then(r=>r.json()).then(j=>console.log(j.version))"
+3. 执行 dsh plugin --profile web add dsh-prompt-pocket@<第 2 步打印的版本>（版本必须写死，pnpm 会跳过刚发布的版本）；
+4. 读 ~/.dsh/profiles/web/node_modules/dsh-prompt-pocket/package.json，确认 version 与第 2 步一致；
+5. 重启宿主：Windows 停掉 DSH021-Web 再启动；macOS 执行 launchctl kickstart -k gui/$(id -u)/com.deepseek.dsh.web；
+6. 打开 http://127.0.0.1:2081，强刷页面（Windows Ctrl+Shift+R / macOS Cmd+Shift+R），确认右下角出现一枚圆点。
+不要用 npm view 查版本（npm 可能因为 devEngines 报 EBADDEVENGINES）。需要能访问 registry.npmjs.org 和 github.com；网络不通就告诉我，不要改别的配置。
 ```
 
-
-
-装完重启一次宿主，让路由、工具和客户端 bundle 注册；然后 `Ctrl+Shift+R` 强刷页面。要从源码装：
+从源码装：
 
 ```bash
 git clone https://github.com/FindSomeSkills/dsh-prompt-pocket
@@ -112,13 +113,14 @@ dsh plugin --profile web add .
 ```
 帮我升级 DSH 插件 dsh-prompt-pocket：
 1. 读当前版本：cat ~/.dsh/profiles/web/node_modules/dsh-prompt-pocket/package.json | grep '"version"'
-2. 查最新版本：npm view dsh-prompt-pocket version
+2. 查最新版本（会打印版本号）：
+node -e "fetch('https://registry.npmjs.org/dsh-prompt-pocket/latest').then(r=>r.json()).then(j=>console.log(j.version))"
 3. 两者相同就告诉我「已是最新」，不要动任何文件；
 4. 不同则执行 dsh plugin --profile web add dsh-prompt-pocket@<最新版本>（版本写死）；
 5. 再读一次磁盘版本，确认已变；
 6. 重启宿主：Windows 停掉 DSH021-Web 再启动；macOS 执行 launchctl kickstart -k gui/$(id -u)/com.deepseek.dsh.web
 7. 打开 http://127.0.0.1:2081 强刷页面，确认面板底部能同步。
-需要能访问 registry.npmjs.org；失败就停下把原文给我。
+不要用 npm view 查版本（npm 可能因为 devEngines 报 EBADDEVENGINES）。需要能访问 registry.npmjs.org；失败就停下把原文给我。
 ```
 
 ## 运行要求
