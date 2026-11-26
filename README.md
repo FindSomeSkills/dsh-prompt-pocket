@@ -55,7 +55,7 @@ Worst case while the panel stays closed is five minutes; opening the panel makes
 ## Install
 
 ```bash
-dsh plugin --profile web add dsh-prompt-pocket@1.0.16
+dsh plugin --profile web add dsh-prompt-pocket@$(npm view dsh-prompt-pocket version)
 ```
 
 ### Install with one prompt
@@ -65,7 +65,7 @@ Paste this into DSH; it checks the prerequisites, installs the pinned version, v
 ```
 Install the DSH plugin dsh-prompt-pocket 1.0.16, in this order, and stop at the first failure with the exact error:
 1. Check node -v is 20 or newer and git --version works.
-2. Run: dsh plugin --profile web add dsh-prompt-pocket@1.0.16
+2. Run: dsh plugin --profile web add dsh-prompt-pocket@$(npm view dsh-prompt-pocket version)
    (pin the version: pnpm's minimumReleaseAge can resolve an older one.)
 3. Read ~/.dsh/profiles/web/node_modules/dsh-prompt-pocket/package.json and confirm version is 1.0.16.
 4. Restart the host: on Windows stop DSH021-Web and start it again; on macOS run launchctl kickstart -k gui/$(id -u)/com.deepseek.dsh.web

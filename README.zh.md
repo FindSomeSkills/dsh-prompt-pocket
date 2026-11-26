@@ -55,7 +55,7 @@
 ## 安装
 
 ```bash
-dsh plugin --profile web add dsh-prompt-pocket@1.0.16
+dsh plugin --profile web add dsh-prompt-pocket@$(npm view dsh-prompt-pocket version)
 ```
 
 ### 一句话装好
@@ -65,7 +65,7 @@ dsh plugin --profile web add dsh-prompt-pocket@1.0.16
 ```
 帮我安装 DSH 插件 dsh-prompt-pocket 1.0.16，按顺序做，哪一步失败就停下把原文报给我：
 1. 检查 node -v 是否 20 或更高，git --version 是否可用；
-2. 执行 dsh plugin --profile web add dsh-prompt-pocket@1.0.16（版本必须写死，pnpm 会跳过刚发布的版本）；
+2. 执行 dsh plugin --profile web add dsh-prompt-pocket@$(npm view dsh-prompt-pocket version)（版本必须写死，pnpm 会跳过刚发布的版本）；
 3. 读 ~/.dsh/profiles/web/node_modules/dsh-prompt-pocket/package.json，确认 version 是 1.0.16；
 4. 重启宿主：Windows 停掉 DSH021-Web 再启动；macOS 执行 launchctl kickstart -k gui/$(id -u)/com.deepseek.dsh.web；
 5. 打开 http://127.0.0.1:2081 ，强刷页面（Windows Ctrl+Shift+R / macOS Cmd+Shift+R），确认右下角出现一枚圆点。
