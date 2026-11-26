@@ -52,14 +52,14 @@
 
 **公开仓库直接拒绝。** 备份与恢复留给没有 git 的机器，也是同步出问题时的一条退路。 开启前问一次 GitHub：200 说明公开，停下；404 说明私有，放行。
 
-## 安装
+## 安装：一条命令
 
 ```bash
 node -e "fetch('https://registry.npmjs.org/dsh-prompt-pocket/latest').then(r=>r.json()).then(j=>console.log(j.version))"
 dsh plugin --profile web add dsh-prompt-pocket@<上面打印的版本>
 ```
 
-### 一句话装好
+### 让 DSH 装：把这段发给它
 
 把下面这段发给 DSH：它会检查前置条件、装写死的版本、核对磁盘上的版本、重启宿主，再告诉你该看到什么。**需要能访问 `registry.npmjs.org` 和 `github.com`；网络不通它会停下并说明，不会去改别的配置。**
 
@@ -102,13 +102,22 @@ dsh plugin --profile web add .
 
 `$DSH_HOME/dsh-prompt-stash/store.d/`，一条提示词一个 JSON 文件，删除留墓碑。所有 profile、所有连到这台机器的浏览器读同一个目录。写入走临时文件 + rename；某一条坏了会改名成 `.corrupt-<时间戳>.bak` 并跳过，不会挡住面板。
 
-## 升级不会自动发生
+## 升级：一条命令
 
 **没有自动升级。** 安装时把精确版本写进了 profile，DSH 也没有更新守护进程：你不敲命令，版本就不会变。这是有意的——插件跑在宿主进程里，运行中换文件会让一半路由停在旧代码上。
 
 **写死版本也是升级要带版本号的原因。** 不带 `@x.y.z` 执行 `dsh plugin add`，pnpm 的 `minimumReleaseAge` 策略可能解析成缓存里的旧版本。
 
-把这段发给 DSH 就能升级：
+先读最新版本，写死安装，再重启宿主（Windows 停掉 DSH021-Web 再启动；macOS 执行 `launchctl kickstart -k gui/$(id -u)/com.deepseek.dsh.web`）。
+
+```bash
+node -e "fetch('https://registry.npmjs.org/dsh-prompt-pocket/latest').then(r=>r.json()).then(j=>console.log(j.version))"
+dsh plugin --profile web add dsh-prompt-pocket@<上面打印的版本>
+```
+
+### 升级：让 DSH 做
+
+把这段发给 DSH：
 
 ```
 帮我升级 DSH 插件 dsh-prompt-pocket：

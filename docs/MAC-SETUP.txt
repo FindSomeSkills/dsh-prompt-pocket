@@ -31,13 +31,14 @@ dsh web
 
 4. 另开一个终端窗口，安装插件
 -----------------------------
-dsh plugin --profile web add dsh-prompt-pocket@1.0.7
+node -e "fetch('https://registry.npmjs.org/dsh-prompt-pocket/latest').then(r=>r.json()).then(j=>console.log(j.version))"
+dsh plugin --profile web add dsh-prompt-pocket@<上面打印的版本>
 
 为什么写死版本：DSH 装插件走 pnpm，它有个 minimumReleaseAge 延迟策略，
 刚发布的版本可能被跳过，第一次会解析成 1.0.0——那个版本还没有同步功能。
 写 @1.0.7 是唯一可靠的办法。
 
-装完核对版本，输出必须是 1.0.7：
+装完核对版本，输出必须与上一步打印的一致：
 
 cat ~/.dsh/profiles/web/node_modules/dsh-prompt-pocket/package.json | grep '"version"'
 

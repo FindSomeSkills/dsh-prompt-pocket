@@ -52,14 +52,14 @@ Worst case while the panel stays closed is five minutes; opening the panel makes
 
 **A public repository is refused.** Before enabling sync the plugin asks GitHub whether the repository is visible: a 200 stops it, a 404 (private) lets it through.
 
-## Install
+## Install: one command
 
 ```bash
 node -e "fetch('https://registry.npmjs.org/dsh-prompt-pocket/latest').then(r=>r.json()).then(j=>console.log(j.version))"
 dsh plugin --profile web add dsh-prompt-pocket@<the version printed above>
 ```
 
-### Install with one prompt
+### Let DSH install it
 
 Paste this into DSH; it checks the prerequisites, installs the pinned version, verifies what landed on disk, restarts the host and tells you what to look for. **Needs access to `registry.npmjs.org` and `github.com`; if the network is blocked, it stops and says so instead of changing anything else.**
 
@@ -102,13 +102,22 @@ dsh plugin --profile web add .
 
 `$DSH_HOME/dsh-prompt-stash/store.d/`, one JSON file per prompt, plus tombstones for deletions. Every profile and every browser pointed at this host reads the same directory. Writes go through a temporary file and a rename; a damaged entry is renamed to `.corrupt-<timestamp>.bak` and skipped instead of blocking the panel.
 
-## Upgrading does not happen by itself
+## Upgrading: one command
 
 **There is no auto-update.** The install writes an exact version into the profile and DSH has no updater daemon: nothing changes until you run a command. That is deliberate — the plugin runs inside the host process, and swapping its files under a live process leaves half the routes on the old code.
 
 **A pinned version is why an upgrade needs the number.** `dsh plugin add` without `@x.y.z` can resolve to a cached older release because of pnpm’s `minimumReleaseAge` policy.
 
-Paste this into DSH to upgrade:
+Read the latest version, install it pinned, then restart the host (Windows: stop DSH021-Web and start it again; macOS: `launchctl kickstart -k gui/$(id -u)/com.deepseek.dsh.web`).
+
+```bash
+node -e "fetch('https://registry.npmjs.org/dsh-prompt-pocket/latest').then(r=>r.json()).then(j=>console.log(j.version))"
+dsh plugin --profile web add dsh-prompt-pocket@<the version printed above>
+```
+
+### Upgrading: let DSH do it
+
+Paste this into DSH:
 
 ```
 Upgrade the DSH plugin dsh-prompt-pocket:
