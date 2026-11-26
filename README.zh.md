@@ -33,6 +33,8 @@
 
 ![Windows 上的面板：两条提示词，底部是最后一次同步时间](https://cdn.jsdelivr.net/gh/FindSomeSkills/dsh-prompt-pocket@main/docs/images/win-sync-2.png)
 
+![Mac 上的同一个口袋](https://cdn.jsdelivr.net/gh/FindSomeSkills/dsh-prompt-pocket@main/docs/images/mac-sync-zh-2.png)
+
 | 你做了什么 | 插件做了什么 |
 | --- | --- |
 | 存、改、挪档、删除 | 三秒后推送 |
