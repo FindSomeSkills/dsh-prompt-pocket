@@ -55,7 +55,7 @@
 ## 安装
 
 ```bash
-dsh plugin --profile web add dsh-prompt-pocket@1.0.7
+dsh plugin --profile web add dsh-prompt-pocket@1.0.16
 ```
 
 ### 一句话装好
@@ -63,10 +63,10 @@ dsh plugin --profile web add dsh-prompt-pocket@1.0.7
 把下面这段发给 DSH：它会检查前置条件、装写死的版本、核对磁盘上的版本、重启宿主，再告诉你该看到什么。**需要能访问 `registry.npmjs.org` 和 `github.com`；网络不通它会停下并说明，不会去改别的配置。**
 
 ```
-帮我安装 DSH 插件 dsh-prompt-pocket 1.0.7，按顺序做，哪一步失败就停下把原文报给我：
+帮我安装 DSH 插件 dsh-prompt-pocket 1.0.16，按顺序做，哪一步失败就停下把原文报给我：
 1. 检查 node -v 是否 20 或更高，git --version 是否可用；
-2. 执行 dsh plugin --profile web add dsh-prompt-pocket@1.0.7（版本必须写死，pnpm 会跳过刚发布的版本）；
-3. 读 ~/.dsh/profiles/web/node_modules/dsh-prompt-pocket/package.json，确认 version 是 1.0.7；
+2. 执行 dsh plugin --profile web add dsh-prompt-pocket@1.0.16（版本必须写死，pnpm 会跳过刚发布的版本）；
+3. 读 ~/.dsh/profiles/web/node_modules/dsh-prompt-pocket/package.json，确认 version 是 1.0.16；
 4. 重启宿主：Windows 停掉 DSH021-Web 再启动；macOS 执行 launchctl kickstart -k gui/$(id -u)/com.deepseek.dsh.web；
 5. 打开 http://127.0.0.1:2081 ，强刷页面（Windows Ctrl+Shift+R / macOS Cmd+Shift+R），确认右下角出现一枚圆点。
 需要能访问 registry.npmjs.org 和 github.com；网络不通就告诉我，不要改别的配置。
